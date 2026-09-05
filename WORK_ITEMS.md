@@ -42,7 +42,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | ID | REQ | Agent | Title | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
 | [WI-001](#wi-001) | boot | Integrator | Install client/server and confirm canvas + `#ui-root` boot | — | DONE |
-| [WI-002](#wi-002) | REQ-UI | UI | Four screens + navigation (menu, settings, highscores, pause) | WI-001 | TODO |
+| [WI-002](#wi-002) | REQ-UI | UI | Four screens + navigation (menu, settings, highscores, pause) | WI-001 | DONE |
 | [WI-003](#wi-003) | boot | Engine | Renderer loop, cameras, resize, dispose | WI-001 | TODO |
 | [WI-004](#wi-004) | REQ-COL-LIGHT | Engine | Ambient + tank SpotLight (shadows) | WI-003 | TODO |
 | [WI-005](#wi-005) | REQ-MAPS | Engine | Three thematic arenas | WI-003 | TODO |
@@ -118,7 +118,7 @@ Stay out of src/engine, src/logic, src/ui feature code except if main.js wiring 
 - **Out of scope:** Three.js, `/src/engine`, REST server
 - **Acceptance:** Main Menu, Settings, Highscores, Pause exist under `#ui-root` and can be shown/hidden without touching the canvas. Start emits a valid `GAME_START` payload.
 - **Dispose / pause:** n/a
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
