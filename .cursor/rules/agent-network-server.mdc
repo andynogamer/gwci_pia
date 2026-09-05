@@ -1,0 +1,24 @@
+---
+description: Agent-Network server isolation — Express, MySQL, WS rooms
+globs: server/**/*
+alwaysApply: false
+---
+
+# Agent-Network (server)
+
+Charter: `server/AGENTS.md`. Spec: REQ-SRV-DB, REQ-MULTI.
+
+No imports from `src/`. No Three.js. No game physics.
+
+REST locked to `CONTRACTS.md`: register, login, POST scores (Bearer), GET scores.
+
+```javascript
+// ❌ INVALID
+connection.query('SELECT * FROM users WHERE name = \'' + username + '\'')
+storePasswordPlaintext(password)
+
+// ✅ VALID
+pool.execute('SELECT id FROM users WHERE username = ?', [username])
+```
+
+WS: 1v1 rooms, handshake, heartbeat, broadcast opponent state. Parameterized SQL. Hash passwords. Do not log secrets.

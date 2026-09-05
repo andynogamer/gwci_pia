@@ -1,0 +1,11 @@
+---
+description: Composition root stays wiring-only
+globs: src/main.js
+alwaysApply: false
+---
+
+# Integrator (main.js)
+
+`src/main.js` may import every agent to construct and bind them. It must not contain collision math, GLSL, HUD markup, SQL, or WebSocket frame encoding.
+
+Those belong in `src/engine`, `src/logic`, `src/ui`, `src/network`, or `server`.

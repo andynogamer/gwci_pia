@@ -1,0 +1,22 @@
+---
+description: Shared kernel — EventBus and constants stay contract-aligned
+globs: src/core/**/*
+alwaysApply: false
+---
+
+# Shared kernel
+
+Charter: `src/core/AGENTS.md`.
+
+`EventBus.js` and `Constants.js` are the only legal cross-agent types. Topic names live in Constants; schemas live in `CONTRACTS.md`. Both must change together.
+
+```javascript
+// ❌ INVALID
+import * as THREE from 'three'
+EventBus.emit('randomTopic', { mesh: tankMesh })
+
+// ✅ VALID
+EventBus.emit(Topics.TANK_DAMAGED, { entityId, currentHp, maxHp })
+```
+
+No DOM, no fetch, no gameplay formulas. Payloads must be JSON-serializable.

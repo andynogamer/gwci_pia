@@ -1,0 +1,22 @@
+---
+description: Spec-anchored work-item protocol and agent routing
+alwaysApply: true
+---
+
+# SAD workflow
+
+Authority order: `CONSTITUTION.md` → `SPEC.md` → `CONTRACTS.md` → nested `AGENTS.md` → code.
+
+Queue: `WORK_ITEMS.md`. Implement only the cited `WI-XXX`. Do not invent extra scope.
+
+Before coding:
+
+1. Open `WORK_ITEMS.md` and identify `WI-XXX` (add a row first if missing).
+2. Cite that item’s `REQ-*` from `SPEC.md`.
+3. Open the nested `AGENTS.md` for the folder you will edit.
+4. Confine diffs to that agent scope (`ARCHITECTURE.md`).
+5. Audit EventBus / REST / WS against `CONTRACTS.md`.
+
+Agent routing: root `AGENTS.md`. Gates: `docs/SAD.md`.
+
+`src/main.js` is wiring only — no physics, shaders, HUD markup, or socket protocol.

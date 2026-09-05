@@ -1,0 +1,486 @@
+# WORK_ITEMS — Micro-Tanks Arena 3D
+
+This file is the **only implementation queue**.  
+Do not start coding from a free-form prompt. Pick a work item, paste its prompt, stay in its agent scope.
+
+**How this relates to other docs**
+
+| Doc | Job |
+| --- | --- |
+| [SPEC.md](./SPEC.md) | *What* must be true (`REQ-*`) |
+| [CONTRACTS.md](./CONTRACTS.md) | *Shapes* of EventBus / REST / WS |
+| [docs/SAD.md](./docs/SAD.md) | *How* an item is executed (4 gates) |
+| **This file** | *Which slice* is next, and who owns it |
+
+---
+
+## Workflow (human + agent)
+
+```
+SPEC.md (frozen)  →  pick WI  →  set IN_PROGRESS
+        →  paste Prompt into Cursor (one agent)
+        →  4 gates in docs/SAD.md
+        →  verify in Chrome
+        →  mark WI DONE
+        →  if that REQ is fully demonstrable, set SPEC.md status to PARTIAL or DONE
+```
+
+Rules:
+
+1. **One WI at a time per agent.** Two agents may run in parallel only when their scopes do not overlap and neither is blocked.
+2. **One agent per WI.** If a rubric row has two owners, it is already split (for example lighting vs AABB).
+3. **Blocked** means a listed dependency is not `DONE`. Do not skip ahead into gameplay that the loop cannot drive.
+4. **Integrator** items may touch `src/main.js` / `index.html` / `package.json` only as wiring.
+5. Closing a WI does **not** rewrite CONSTITUTION.md. If the spec is wrong, amend SPEC/CONTRACTS first, then add a new WI.
+
+Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
+
+---
+
+## Board
+
+| ID | REQ | Agent | Title | Depends on | Status |
+| --- | --- | --- | --- | --- | --- |
+| [WI-001](#wi-001) | boot | Integrator | Install client/server and confirm canvas + `#ui-root` boot | — | TODO |
+| [WI-002](#wi-002) | REQ-UI | UI | Four screens + navigation (menu, settings, highscores, pause) | WI-001 | TODO |
+| [WI-003](#wi-003) | boot | Engine | Renderer loop, cameras, resize, dispose | WI-001 | TODO |
+| [WI-004](#wi-004) | REQ-COL-LIGHT | Engine | Ambient + tank SpotLight (shadows) | WI-003 | TODO |
+| [WI-005](#wi-005) | REQ-MAPS | Engine | Three thematic arenas | WI-003 | TODO |
+| [WI-006](#wi-006) | boot | Logic | State machine + `THREE.Clock` game loop | WI-001 | TODO |
+| [WI-007](#wi-007) | — | Logic | Local tank chassis + turret (delta-time) | WI-006, WI-003 | TODO |
+| [WI-008](#wi-008) | REQ-COL-LIGHT | Logic | AABB collision manager (`THREE.Box3`) | WI-007, WI-005 | TODO |
+| [WI-009](#wi-009) | REQ-AI-PART, REQ-DIFF | Logic | Enemy FOV, LOS raycast, AI FSM, two difficulties | WI-007, WI-008 | TODO |
+| [WI-010](#wi-010) | REQ-AI-PART | Engine | `THREE.Points` muzzle / impact / smoke / explosion | WI-003 | TODO |
+| [WI-011](#wi-011) | REQ-SND-ITM | Logic | BGM + SFX; Shield, Triple Shell, Repair Kit | WI-006 | TODO |
+| [WI-012](#wi-012) | REQ-MODES | Logic | Horde Survival (PVE waves) | WI-009, WI-011 | TODO |
+| [WI-013](#wi-013) | REQ-SRV-DB | Network | MySQL schema, auth + scores REST | WI-001 | TODO |
+| [WI-014](#wi-014) | REQ-UI, REQ-SRV-DB | UI | Settings `localStorage`; highscores table from API | WI-002, WI-013 | TODO |
+| [WI-015](#wi-015) | REQ-MULTI | Network | WebSocket 1v1 rooms + `CLIENT_STATE_UPDATE` | WI-007, WI-013 | TODO |
+| [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | TODO |
+| [WI-017](#wi-017) | REQ-COL-LIGHT | Engine | Shield / ground `ShaderMaterial` | WI-010, WI-011 | TODO |
+| [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | TODO |
+
+**Next playable vertical slice:** WI-001 → WI-002 + WI-003 + WI-006 (loop + menus + empty scene).
+
+---
+
+## New item template
+
+Add at the bottom (never silently expand an existing WI’s scope). Copy the header into the chat prompt.
+
+```
+### WI-0XX
+- REQ:
+- Agent:
+- Scope:
+- Depends on:
+- Contracts:
+- Out of scope:
+- Acceptance:
+- Dispose / pause:
+- Status: TODO
+```
+
+---
+
+## Items
+
+### WI-001
+
+- **REQ:** boot (no rubric row; unblocks everything)
+- **Agent:** Integrator
+- **Scope:** `package.json`, `server/package.json`, README bootstrap only if needed
+- **Depends on:** —
+- **Contracts:** none
+- **Out of scope:** gameplay, CSS screens, shaders
+- **Acceptance:** `npm install` at repo root and in `server/` succeed; `npm run dev` shows canvas + `#ui-root`; server process starts on port 3001 (REST may still 501).
+- **Dispose / pause:** n/a
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-001 only.
+Agent: Integrator. Do not implement gameplay.
+Install nothing globally. Confirm Vite and server entrypoints boot.
+Stay out of src/engine, src/logic, src/ui feature code except if main.js wiring is broken.
+```
+
+---
+
+### WI-002
+
+- **REQ:** REQ-UI
+- **Agent:** UI
+- **Scope:** `/src/ui/`
+- **Depends on:** WI-001
+- **Contracts:** `GAME_START`, `GAME_PAUSE`, `SETTINGS_UPDATED`
+- **Out of scope:** Three.js, `/src/engine`, REST server
+- **Acceptance:** Main Menu, Settings, Highscores, Pause exist under `#ui-root` and can be shown/hidden without touching the canvas. Start emits a valid `GAME_START` payload.
+- **Dispose / pause:** n/a
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-002 only.
+You are Agent-UI. Read src/ui/AGENTS.md and CONTRACTS.md.
+Implement four screens and navigation inside #ui-root.
+Do not import three. Do not edit src/engine, src/logic, src/network, or server.
+```
+
+---
+
+### WI-003
+
+- **REQ:** boot / cameras
+- **Agent:** Engine
+- **Scope:** `/src/engine/` (`Renderer.js`, `SceneManager.js`, `CameraManager.js`)
+- **Depends on:** WI-001
+- **Contracts:** subscribe `GAME_START` / `GAME_OVER` for load/unload if already emitted
+- **Out of scope:** HP, AI, DOM UI, network
+- **Acceptance:** WebGLRenderer on `#game-canvas`; follow + isometric cameras; resize; `dispose()` clears renderer resources.
+- **Dispose / pause:** geometries/materials/textures on unload
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-003 only.
+You are Agent-Engine. Read src/engine/AGENTS.md.
+Implement renderer loop, follow + isometric cameras, resize, and dispose.
+Delta time from THREE.Clock. No DOM except the canvas. No gameplay rules.
+```
+
+---
+
+### WI-004
+
+- **REQ:** REQ-COL-LIGHT (lighting half)
+- **Agent:** Engine
+- **Scope:** `/src/engine/lights/`
+- **Depends on:** WI-003
+- **Contracts:** none new
+- **Out of scope:** AABB, damage
+- **Acceptance:** `THREE.AmbientLight` in scene; local tank `THREE.SpotLight` casts shadows.
+- **Dispose / pause:** lights removed and disposed with scene
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-004 only.
+You are Agent-Engine. Implement dual illumination: AmbientLight + tank-mounted SpotLight with shadows.
+Do not implement collisions. Do not touch src/logic or src/ui.
+```
+
+---
+
+### WI-005
+
+- **REQ:** REQ-MAPS
+- **Agent:** Engine
+- **Scope:** `/src/engine/maps/`
+- **Depends on:** WI-003
+- **Contracts:** `GAME_START.mapId` `1 | 2 | 3`
+- **Out of scope:** walkable AI (logic owns collider registration later)
+- **Acceptance:** Desert Dunes, Industrial Complex, Lunar Station are visually distinct and selectable by `mapId`. Unload disposes map resources.
+- **Dispose / pause:** full map teardown
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-005 only.
+You are Agent-Engine. Implement three maps per SPEC.md REQ-MAPS.
+Load from GAME_START.mapId. Dispose on unload. No physics rules, no UI.
+```
+
+---
+
+### WI-006
+
+- **REQ:** boot
+- **Agent:** Logic
+- **Scope:** `/src/logic/GameManager.js`
+- **Depends on:** WI-001
+- **Contracts:** `GAME_START`, `GAME_PAUSE`, `GAME_OVER`
+- **Out of scope:** CSS, sockets, map meshes
+- **Acceptance:** States Boot → Menu → Playing → Paused → GameOver. Playing loop uses `clock.getDelta()`. Pause stops simulation updates.
+- **Dispose / pause:** pause does not leak intervals
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-006 only.
+You are Agent-Logic. Read src/logic/AGENTS.md.
+Implement the game state machine and a delta-time loop via THREE.Clock.
+No DOM. No CSS. No WebSockets.
+```
+
+---
+
+### WI-007
+
+- **REQ:** tank control (supports all combat REQs)
+- **Agent:** Logic
+- **Scope:** `/src/logic/entities/`
+- **Depends on:** WI-006, WI-003
+- **Contracts:** `PLAYER_FIRE` `{ origin, direction, isLocal }`
+- **Out of scope:** enemy AI, network encoding
+- **Acceptance:** Chassis move/steer and turret follow mouse ray in world space; all motion `* dt`. Fire emits `PLAYER_FIRE`.
+- **Dispose / pause:** frozen while Paused
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-007 only.
+You are Agent-Logic. Implement local tank chassis + independent turret.
+Use delta time. Emit PLAYER_FIRE per CONTRACTS.md.
+Do not write DOM or CSS. Do not open sockets.
+```
+
+---
+
+### WI-008
+
+- **REQ:** REQ-COL-LIGHT (collision half)
+- **Agent:** Logic
+- **Scope:** `/src/logic/physics/`
+- **Depends on:** WI-007, WI-005
+- **Contracts:** `TANK_DAMAGED`
+- **Out of scope:** Cannon/Ammo/Rapier; lighting
+- **Acceptance:** Tanks, projectiles, obstacles, bounds use `THREE.Box3`. Hits publish `TANK_DAMAGED`.
+- **Dispose / pause:** collider map cleared on match end
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-008 only.
+You are Agent-Logic. Implement AABB collisions with THREE.Box3 only.
+Publish TANK_DAMAGED. No external physics engines. No UI. No renderer ownership.
+```
+
+---
+
+### WI-009
+
+- **REQ:** REQ-AI-PART (AI), REQ-DIFF
+- **Agent:** Logic
+- **Scope:** `/src/logic/ai/`
+- **Depends on:** WI-007, WI-008
+- **Contracts:** uses `GAME_START.difficulty`
+- **Out of scope:** particles, time-based difficulty
+- **Acceptance:** FOV via `dot(u,v)`; LOS via `Raycaster`. FSM Patrol → Investigate → Pursue → Engage. EASY vs HARD per SPEC.md table (FOV, latency, fire/prediction — not match duration).
+- **Dispose / pause:** AI ticks scaled by `dt`; paused when Paused
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-009 only.
+You are Agent-Logic. Implement enemy AI FOV (dot product), Raycaster LOS, and FSM.
+Difficulty EASY vs HARD per SPEC.md REQ-DIFF. No particle systems. No DOM.
+```
+
+---
+
+### WI-010
+
+- **REQ:** REQ-AI-PART (particles)
+- **Agent:** Engine
+- **Scope:** `/src/engine/particles/`
+- **Depends on:** WI-003
+- **Contracts:** `PLAYER_FIRE`, `TANK_DAMAGED` (FX only)
+- **Out of scope:** damage math
+- **Acceptance:** `THREE.Points` for muzzle, impact, smoke, explosion. Lifetimes `* dt`. Disposed on restart.
+- **Dispose / pause:** mandatory
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-010 only.
+You are Agent-Engine. Implement THREE.Points FX for muzzle, impact, smoke, explosion.
+Delta-time lifetimes. Dispose on scene restart. No HP or win conditions.
+```
+
+---
+
+### WI-011
+
+- **REQ:** REQ-SND-ITM
+- **Agent:** Logic
+- **Scope:** `/src/logic/audio/`, `/src/logic/items/`
+- **Depends on:** WI-006
+- **Contracts:** `ITEM_COLLECTED`, `SETTINGS_UPDATED`
+- **Out of scope:** HUD layout, GLSL (engine consumes shield later)
+- **Acceptance:** BGM + engine/fire/explosion SFX. Volumes from settings. Items Shield, Triple Shell, Repair Kit with lifecycles.
+- **Dispose / pause:** stop/resume audio on pause; item timers use `dt`
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-011 only.
+You are Agent-Logic. Implement Web Audio BGM/SFX and three items (SHIELD, TRIPLE, REPAIR).
+Honor SETTINGS_UPDATED. Emit ITEM_COLLECTED. No CSS. No Three.js materials.
+```
+
+---
+
+### WI-012
+
+- **REQ:** REQ-MODES (PVE)
+- **Agent:** Logic
+- **Scope:** `/src/logic/gamemodes/HordeSurvival.js`
+- **Depends on:** WI-009, WI-011
+- **Contracts:** `GAME_START.mode === "PVE"`, `GAME_OVER`
+- **Out of scope:** WebSockets
+- **Acceptance:** Wave horde vs AI. Score and winner published on `GAME_OVER`. Works offline.
+- **Dispose / pause:** waves pause with the state machine
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-012 only.
+You are Agent-Logic. Implement Horde Survival (PVE) per SPEC.md REQ-MODES.
+No network code. Publish GAME_OVER per CONTRACTS.md.
+```
+
+---
+
+### WI-013
+
+- **REQ:** REQ-SRV-DB
+- **Agent:** Network
+- **Scope:** `/server/` (`schema.sql`, `config/db.js`, `routes/*`)
+- **Depends on:** WI-001
+- **Contracts:** CONTRACTS.md §C exactly
+- **Out of scope:** Three.js, physics, HTML UI
+- **Acceptance:** Parameterized MySQL. Register/login. Bearer POST scores. GET top scores. Passwords hashed.
+- **Dispose / pause:** n/a
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-013 only.
+You are Agent-Network (server). Read server/AGENTS.md and CONTRACTS.md §C.
+Implement auth + scores against MySQL with parameterized queries.
+Do not import src/. Do not simulate game physics.
+```
+
+---
+
+### WI-014
+
+- **REQ:** REQ-UI, REQ-SRV-DB (client persistence + table)
+- **Agent:** UI
+- **Scope:** `/src/ui/` (may call `ApiClient` via existing facade; do not rewrite sockets)
+- **Depends on:** WI-002, WI-013
+- **Contracts:** REST response arrays; `SETTINGS_UPDATED`; `localStorage` keys `mta.*`
+- **Out of scope:** implementing Express routes
+- **Acceptance:** Settings sliders persist across refresh. Highscores table fills from `GET /api/scores`.
+- **Dispose / pause:** n/a
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-014 only.
+You are Agent-UI. Wire Settings localStorage and Highscores table to ApiClient data.
+Do not import three. Do not edit server/ or physics.
+```
+
+---
+
+### WI-015
+
+- **REQ:** REQ-MULTI
+- **Agent:** Network
+- **Scope:** `/src/network/NetworkClient.js`, `/server/ws/`
+- **Depends on:** WI-007, WI-013
+- **Contracts:** `CLIENT_STATE_UPDATE`, room handshake, heartbeat, fire relay
+- **Out of scope:** AABB, damage formulas, map meshes
+- **Acceptance:** Two Chrome clients in one room see opponent pose, turret, fire. Heartbeat drops stale rooms.
+- **Dispose / pause:** close socket on GAME_OVER / leave
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-015 only.
+You are Agent-Network. Implement WebSocket 1v1 per CONTRACTS.md §B.
+Relay only. No rendering. No collision/damage logic.
+```
+
+---
+
+### WI-016
+
+- **REQ:** REQ-MODES (PVP)
+- **Agent:** Logic
+- **Scope:** `/src/logic/gamemodes/NetworkDuel.js`
+- **Depends on:** WI-012, WI-015
+- **Contracts:** `GAME_START.mode === "PVP"`, `GAME_OVER`
+- **Out of scope:** `ws` / Express internals
+- **Acceptance:** Duel rules consume remote state from the bus, not a local AI opponent as authority. Offline PVE still works.
+- **Dispose / pause:** match teardown on GAME_OVER
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-016 only.
+You are Agent-Logic. Implement Network Duel rules only.
+Do not open WebSockets. Do not edit server/. Apply remote pose/fire from EventBus payloads.
+```
+
+---
+
+### WI-017
+
+- **REQ:** visual complement to REQ-SND-ITM / lighting
+- **Agent:** Engine
+- **Scope:** `/src/engine/shaders/`
+- **Depends on:** WI-010, WI-011
+- **Contracts:** `ITEM_COLLECTED` type `SHIELD` (FX only)
+- **Out of scope:** item timers (logic)
+- **Acceptance:** `ShaderMaterial` energy shield + ground effect. `uTime` scaled by `dt`. Disposed on unload.
+- **Dispose / pause:** mandatory
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-017 only.
+You are Agent-Engine. Implement ShaderMaterial shield and ground effects.
+No gameplay state. Dispose materials on unload.
+```
+
+---
+
+### WI-018
+
+- **REQ:** constitution §6 performance gate
+- **Agent:** Integrator
+- **Scope:** wiring + leak fixes *inside the owning agent folders* (split follow-ups if a leak is isolated)
+- **Depends on:** WI-012, WI-016, WI-017
+- **Contracts:** none new
+- **Out of scope:** new features
+- **Acceptance:** Chrome Playing ~60 FPS. Restart match twice with no retained geometry/material/texture growth.
+- **Dispose / pause:** prove teardown
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-018 only.
+Performance and memory gate in Chrome. No new features.
+If a leak is in one agent folder, fix only that folder and note the owner.
+```

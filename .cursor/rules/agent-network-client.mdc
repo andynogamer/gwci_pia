@@ -1,0 +1,26 @@
+---
+description: Agent-Network isolation — REST client, WebSockets, no physics/render
+globs: src/network/**/*
+alwaysApply: false
+---
+
+# Agent-Network (client)
+
+Charter: `src/network/AGENTS.md`. Spec: REQ-MULTI, REQ-SRV-DB (HTTP).
+
+Allowed: `src/core/*`, `fetch`, `WebSocket`. Payloads must match `CONTRACTS.md`.
+
+```javascript
+// ❌ INVALID
+import * as THREE from 'three'
+new THREE.Box3()
+document.querySelector('#ui-root')
+
+// ✅ VALID
+ws.send(JSON.stringify({
+  event: 'CLIENT_STATE_UPDATE',
+  id, timestamp, pos, rotY, turretRotY, hp
+}))
+```
+
+Relay pose/fire only. Do not decide collisions or damage. Do not add WS fields without a contract update.

@@ -1,0 +1,25 @@
+---
+description: Agent-UI isolation — screens, HUD, CSS, localStorage
+globs: src/ui/**/*
+alwaysApply: false
+---
+
+# Agent-UI
+
+Charter: `src/ui/AGENTS.md`. Spec: REQ-UI, REQ-SRV-DB (localStorage).
+
+Allowed: `src/core/*`, DOM, CSS. Mount only under `#ui-root`.
+
+Required screens: Main Menu, Settings, Highscores, Pause.
+
+```javascript
+// ❌ INVALID
+import * as THREE from 'three'
+tank.position.x  // 3D transform query
+
+// ✅ VALID
+EventBus.emit(Topics.GAME_START, { mode: 'PVE', mapId: 1, difficulty: 'EASY' })
+localStorage.setItem('mta.masterVolume', String(masterVolume))
+```
+
+No Three.js loops. HUD values come from EventBus (`TANK_DAMAGED`, `ITEM_COLLECTED`). Radar is HTML/2D only.

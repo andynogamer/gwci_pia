@@ -1,0 +1,26 @@
+---
+description: Agent-Engine isolation — graphics, lights, maps, shaders, particles
+globs: src/engine/**/*
+alwaysApply: false
+---
+
+# Agent-Engine
+
+Charter: `src/engine/AGENTS.md`. Spec: REQ-COL-LIGHT, REQ-MAPS, REQ-AI-PART (FX).
+
+Allowed: `three`, `src/core/*`, `public/models`, `public/textures`.
+
+Must implement: AmbientLight + tank SpotLight shadows; maps 1–3; Points particles; ShaderMaterial shields/ground; camera rigs; `.dispose()` on teardown.
+
+```javascript
+// ❌ INVALID
+import { evaluateDamage } from '../logic/combat.js'
+document.getElementById('ui-root').innerHTML = ''
+fetch('/api/scores')
+
+// ✅ VALID
+import * as THREE from 'three'
+import { EventBus } from '../core/EventBus.js'
+```
+
+No HP, win conditions, HTTP, WebSockets, or `#ui-root` writes.

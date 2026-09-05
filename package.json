@@ -1,0 +1,21 @@
+{
+  "name": "micro-tanks-arena-3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Spec-anchored 3D tank arena (Three.js + Vite). Academic rubric build.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

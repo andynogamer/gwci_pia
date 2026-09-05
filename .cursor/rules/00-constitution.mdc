@@ -1,0 +1,17 @@
+---
+description: Supreme invariant laws for Micro-Tanks Arena 3D (SAD)
+alwaysApply: true
+---
+
+# Constitution invariants
+
+Read `CONSTITUTION.md` before any patch. Violations are INVALID.
+
+- Renderer: Three.js only. No Babylon.js, PlayCanvas, Phaser 3D.
+- Physics: `THREE.Box3` / `Sphere` / `Raycaster` only. No Cannon.js, Ammo.js, Rapier.
+- UI is HTML/CSS inside `#ui-root`. Engine/logic must not write the DOM.
+- UI ↔ 3D communication only via EventBus (`src/core/EventBus.js`).
+- Motion, AI, ballistics, and particles use `THREE.Clock` delta. No 60 Hz hardcoded steps.
+- Dispose every `BufferGeometry`, `Material`, and `Texture` on unload/restart.
+
+Do not invent EventBus topics or REST/WS fields without updating `CONTRACTS.md`.

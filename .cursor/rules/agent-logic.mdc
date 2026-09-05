@@ -1,0 +1,25 @@
+---
+description: Agent-Logic isolation — state machine, AABB, AI, items, audio
+globs: src/logic/**/*
+alwaysApply: false
+---
+
+# Agent-Logic
+
+Charter: `src/logic/AGENTS.md`. Spec: REQ-COL-LIGHT (AABB), REQ-DIFF, REQ-MODES, REQ-SND-ITM, REQ-AI-PART (FOV).
+
+Allowed: `src/core/*`, Three.js math primitives, audio under `public/audio`, narrow engine spawn facades.
+
+```javascript
+// ❌ INVALID
+document.body.style.cursor = 'none'
+import Cannon from 'cannon-es'
+const step = 1 / 60
+
+// ✅ VALID
+const dt = clock.getDelta()
+position.addScaledVector(velocity, dt)
+const hits = boxA.intersectsBox(boxB)
+```
+
+No CSS/DOM. Difficulty is FOV/reaction/fire behavior, not a timer. AI: dot-product cone + Raycaster LOS; FSM Patrol → Investigate → Pursue → Engage.
