@@ -41,7 +41,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 
 | ID | REQ | Agent | Title | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
-| [WI-001](#wi-001) | boot | Integrator | Install client/server and confirm canvas + `#ui-root` boot | — | TODO |
+| [WI-001](#wi-001) | boot | Integrator | Install client/server and confirm canvas + `#ui-root` boot | — | DONE |
 | [WI-002](#wi-002) | REQ-UI | UI | Four screens + navigation (menu, settings, highscores, pause) | WI-001 | TODO |
 | [WI-003](#wi-003) | boot | Engine | Renderer loop, cameras, resize, dispose | WI-001 | TODO |
 | [WI-004](#wi-004) | REQ-COL-LIGHT | Engine | Ambient + tank SpotLight (shadows) | WI-003 | TODO |
@@ -95,7 +95,7 @@ Add at the bottom (never silently expand an existing WI’s scope). Copy the hea
 - **Out of scope:** gameplay, CSS screens, shaders
 - **Acceptance:** `npm install` at repo root and in `server/` succeed; `npm run dev` shows canvas + `#ui-root`; server process starts on port 3001 (REST may still 501).
 - **Dispose / pause:** n/a
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
