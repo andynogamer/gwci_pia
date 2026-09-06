@@ -65,7 +65,7 @@ Related governance:
 - **Nested charter:** [src/logic/AGENTS.md](./src/logic/AGENTS.md)
 - **Responsibilities:**
   - Core Game State Machine (Boot, Menu, Playing, Paused, GameOver).
-  - Tank kinematic controller (chassis steering, independent turret tracking via mouse raycasting).
+  - Tank kinematic controller (chassis steering, independent turret via left/right arrow keys; all rotation scaled by delta time).
   - Collision detection engine using Axis-Aligned Bounding Boxes (`THREE.Box3`).
   - Enemy Tank Artificial Intelligence:
     - Cone of vision: vector dot-product FOV checking combined with `THREE.Raycaster` line-of-sight obstacle masking.

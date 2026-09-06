@@ -16,10 +16,12 @@ export class UIManager {
   /**
    * @param {HTMLElement} root
    * @param {import('../core/EventBus.js').EventBus} bus
+   * @param {{ onQuitToMenu?: () => void }} [hooks]
    */
-  constructor(root, bus) {
+  constructor(root, bus, hooks = {}) {
     this.root = root;
     this.bus = bus;
+    this.hooks = hooks;
     /** @type {MenuScreen} */
     this.activeScreen = 'menu';
     this.playing = false;
@@ -101,9 +103,7 @@ export class UIManager {
   }
 
   quitToMenu() {
-    if (this.paused) {
-      this.bus.emit(Topics.GAME_PAUSE, { isPaused: false });
-    }
+    this.hooks.onQuitToMenu?.();
     this.playing = false;
     this.paused = false;
     this.activeScreen = 'menu';
@@ -125,7 +125,7 @@ export class UIManager {
     }
 
     if (this.hud.el) {
-      this.hud.el.hidden = !(this.playing && !showSettings);
+      this.hud.el.hidden = !(this.playing && !this.paused && !showSettings);
     }
   }
 }

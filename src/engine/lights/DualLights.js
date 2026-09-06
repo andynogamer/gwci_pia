@@ -61,8 +61,10 @@ export class DualLights {
       this.headlightMount.parent.remove(this.headlightMount);
     }
     this._tank = tank;
-    this.headlightMount.position.set(0, 1.15, 0.55);
+    this.headlightMount.position.set(0.92, 0.42, 1.62);
     this.headlightMount.rotation.set(0, 0, 0);
+    this.spot.position.set(0, 0, 0);
+    this.spot.target.position.set(0.15, -0.25, 18);
     tank.add(this.headlightMount);
   }
 

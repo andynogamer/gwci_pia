@@ -1,10 +1,10 @@
 /**
- * Agent-Logic — WI-006 state machine + delta-time simulation loop.
+ * Agent-Logic — WI-006 state machine + WI-007 local tank tick.
  * Boot → Menu → Playing → Paused → GameOver.
- * Motion systems (WI-007+) tick from update(dt) later; this item owns the clock only.
  */
 import { Clock } from 'three';
 import { Difficulty, GameMode, GameState, MapId, Topics } from '../core/Constants.js';
+import { TankController } from './entities/TankController.js';
 
 const VALID_MODES = new Set(Object.values(GameMode));
 const VALID_DIFFICULTIES = new Set(Object.values(Difficulty));
@@ -13,9 +13,12 @@ const VALID_MAP_IDS = new Set(Object.values(MapId));
 export class GameManager {
   /**
    * @param {import('../core/EventBus.js').EventBus} bus
+   * @param {{ sceneManager?: import('../engine/SceneManager.js').SceneManager, cameraManager?: import('../engine/CameraManager.js').CameraManager }} [facades]
    */
-  constructor(bus) {
+  constructor(bus, facades = {}) {
     this.bus = bus;
+    this.sceneManager = facades.sceneManager ?? null;
+    this.cameraManager = facades.cameraManager ?? null;
     this.state = GameState.BOOT;
     this.clock = new Clock(false);
     /** @type {{ mode: string, mapId: number, difficulty: string } | null} */
@@ -23,6 +26,7 @@ export class GameManager {
     this.simElapsed = 0;
     this.lastDt = 0;
     this.playingTicks = 0;
+    this.tank = new TankController();
 
     /** @type {number | null} */
     this._raf = null;
@@ -60,6 +64,10 @@ export class GameManager {
     this.simElapsed = 0;
     this.lastDt = 0;
     this.playingTicks = 0;
+    this.tank.reset(0, 6, Math.PI);
+    this.sceneManager?.spawnLocalTank();
+    this._syncVisuals();
+    this.cameraManager?.snapFollow();
     this.state = GameState.PLAYING;
     this.clock.start();
   }
@@ -93,6 +101,8 @@ export class GameManager {
 
     this.state = GameState.GAME_OVER;
     this.clock.stop();
+    this.tank.setChassisInput(0, 0);
+    this.sceneManager?.despawnLocalTank();
     this.bus.emit(Topics.GAME_OVER, {
       winner: String(result?.winner ?? ''),
       score: Number(result?.score) || 0,
@@ -100,14 +110,42 @@ export class GameManager {
   }
 
   /**
-   * @param {number} _dt seconds from THREE.Clock.getDelta()
+   * Integrator supplies chassis axes. Ignored unless Playing (applied next tick).
+   * @param {number} throttle
+   * @param {number} steer
    */
-  update(_dt) {
-    // WI-007 tank, WI-008 collisions, WI-009 AI, WI-011 items/audio, WI-012 modes.
+  setChassisInput(throttle, steer) {
+    this.tank.setChassisInput(throttle, steer);
+  }
+
+  /**
+   * Arrow-key turret yaw. Positive = left.
+   * @param {number} turretSteer
+   */
+  setTurretInput(turretSteer) {
+    this.tank.setTurretInput(turretSteer);
+  }
+
+  /** Left-click fire. Emits PLAYER_FIRE when Playing and cooldown allows. */
+  tryFire() {
+    if (this.state !== GameState.PLAYING) return false;
+    const shot = this.tank.tryFire();
+    if (!shot) return false;
+    this.bus.emit(Topics.PLAYER_FIRE, shot);
+    return true;
+  }
+
+  /**
+   * @param {number} dt seconds from THREE.Clock.getDelta()
+   */
+  update(dt) {
+    this.tank.update(dt);
+    this._syncVisuals();
   }
 
   /** JSON-serializable snapshot for DEV verification. No Three.js objects. */
   getDebugState() {
+    const pose = this.tank.getPose();
     return {
       state: this.state,
       simElapsed: this.simElapsed,
@@ -115,6 +153,9 @@ export class GameManager {
       playingTicks: this.playingTicks,
       clockRunning: this.clock.running,
       match: this.match,
+      tank: pose,
+      fireCount: this.tank.fireCount,
+      fireCooldown: this.tank.fireCooldown,
     };
   }
 
@@ -124,6 +165,7 @@ export class GameManager {
       this._raf = null;
     }
     this.clock.stop();
+    this.sceneManager?.despawnLocalTank();
     for (const off of this._unsubs) {
       off();
     }
@@ -131,6 +173,13 @@ export class GameManager {
     this._booted = false;
     this.state = GameState.BOOT;
     this.match = null;
+  }
+
+  _syncVisuals() {
+    const pose = this.tank.getPose();
+    this.sceneManager?.syncLocalTank(pose);
+    this.cameraManager?.setTarget(pose.x, pose.y, pose.z);
+    this.cameraManager?.setFollowYaw(pose.turretRotY);
   }
 
   _scheduleLoop() {

@@ -40,7 +40,6 @@ body {
 }
 
 #ui-root .ui-screen,
-#ui-root .ui-hud,
 #ui-root button,
 #ui-root input,
 #ui-root select,
@@ -74,6 +73,7 @@ body {
 }
 
 .ui-screen--pause {
+  z-index: 30;
   background: rgba(6, 9, 12, 0.88);
   backdrop-filter: blur(4px);
   text-align: center;
@@ -310,6 +310,7 @@ body {
 .ui-hud {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
 }
 

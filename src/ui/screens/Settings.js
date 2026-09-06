@@ -59,7 +59,7 @@ export class Settings {
           <h3>Controls</h3>
           <dl class="ui-keymap">
             <div><dt>Move</dt><dd>W A S D</dd></div>
-            <div><dt>Turret</dt><dd>Mouse aim</dd></div>
+            <div><dt>Turret</dt><dd>← → arrows</dd></div>
             <div><dt>Fire</dt><dd>Left click</dd></div>
             <div><dt>Pause</dt><dd>Esc</dd></div>
           </dl>

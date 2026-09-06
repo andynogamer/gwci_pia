@@ -9,10 +9,14 @@ export const CameraMode = Object.freeze({
   ISOMETRIC: 'ISOMETRIC',
 });
 
-const FOLLOW_OFFSET = new THREE.Vector3(0, 7, 14);
+const FOLLOW_BACK = 15;
+const FOLLOW_HEIGHT = 7.5;
+const FOLLOW_LOOK_AHEAD = 5;
 const FOLLOW_LOOK_HEIGHT = 1.2;
-/** Exponential smoothing rate (higher = snappier). */
-const FOLLOW_SMOOTH = 6;
+/** Position catch-up rate (lower = smoother). */
+const FOLLOW_POS_SMOOTH = 2.15;
+/** Yaw catch-up rate (lower = smoother orbit). */
+const FOLLOW_YAW_SMOOTH = 2.4;
 const ISO_DISTANCE = 28;
 const ISO_YAW = Math.PI / 4;
 const ISO_PITCH = Math.atan(1 / Math.SQRT2);
@@ -44,9 +48,18 @@ export class CameraManager {
     this.camera = this.followCam;
 
     this.target = new THREE.Vector3(0, 0, 0);
+    /** Turret yaw (radians). Camera sits behind the cannon. */
+    this.followYaw = Math.PI;
+    /** Smoothed yaw used for offset / look (lags followYaw). */
+    this._visualYaw = Math.PI;
     this._desired = new THREE.Vector3();
     this._lookAt = new THREE.Vector3();
     this._isoOffset = new THREE.Vector3();
+    this._followOffset = new THREE.Vector3();
+    this._ndc = new THREE.Vector2();
+    this._groundHit = new THREE.Vector3();
+    this._raycaster = new THREE.Raycaster();
+    this._ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
     this._placeFollowImmediate();
     this._placeIso();
@@ -83,6 +96,53 @@ export class CameraManager {
   }
 
   /**
+   * World yaw of the cannon. Follow rig stays behind this heading.
+   * @param {number} yaw
+   */
+  setFollowYaw(yaw) {
+    if (!Number.isFinite(yaw)) return;
+    this.followYaw = yaw;
+  }
+
+  /** Jump the follow rig (match start). */
+  snapFollow() {
+    this._visualYaw = this.followYaw;
+    this._placeFollowImmediate();
+  }
+
+  _wrapAngle(a) {
+    let x = a;
+    while (x > Math.PI) x -= Math.PI * 2;
+    while (x < -Math.PI) x += Math.PI * 2;
+    return x;
+  }
+
+  _shortestDelta(from, to) {
+    return this._wrapAngle(to - from);
+  }
+
+  _followOffsetFromYaw(yaw = this._visualYaw) {
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    this._followOffset.set(-fx * FOLLOW_BACK, FOLLOW_HEIGHT, -fz * FOLLOW_BACK);
+    return this._followOffset;
+  }
+
+  /**
+   * Ground-plane pick from NDC. Returns JSON [x,y,z] or null. No Object3D on the bus.
+   * @param {number} ndcX
+   * @param {number} ndcY
+   * @returns {[number, number, number] | null}
+   */
+  pickGround(ndcX, ndcY) {
+    this._ndc.set(ndcX, ndcY);
+    this._raycaster.setFromCamera(this._ndc, this.camera);
+    const hit = this._raycaster.ray.intersectPlane(this._ground, this._groundHit);
+    if (!hit) return null;
+    return [this._groundHit.x, this._groundHit.y, this._groundHit.z];
+  }
+
+  /**
    * @param {number} width
    * @param {number} height
    */
@@ -109,10 +169,21 @@ export class CameraManager {
     if (dt <= 0) return;
 
     if (this.mode === CameraMode.FOLLOW) {
-      this._desired.copy(this.target).add(FOLLOW_OFFSET);
-      const t = 1 - Math.exp(-FOLLOW_SMOOTH * dt);
-      this.followCam.position.lerp(this._desired, t);
-      this._lookAt.set(this.target.x, this.target.y + FOLLOW_LOOK_HEIGHT, this.target.z);
+      const yawT = 1 - Math.exp(-FOLLOW_YAW_SMOOTH * dt);
+      this._visualYaw = this._wrapAngle(
+        this._visualYaw + this._shortestDelta(this._visualYaw, this.followYaw) * yawT,
+      );
+
+      this._desired.copy(this.target).add(this._followOffsetFromYaw(this._visualYaw));
+      const posT = 1 - Math.exp(-FOLLOW_POS_SMOOTH * dt);
+      this.followCam.position.lerp(this._desired, posT);
+      const fx = Math.sin(this._visualYaw);
+      const fz = Math.cos(this._visualYaw);
+      this._lookAt.set(
+        this.target.x + fx * FOLLOW_LOOK_AHEAD,
+        this.target.y + FOLLOW_LOOK_HEIGHT,
+        this.target.z + fz * FOLLOW_LOOK_AHEAD,
+      );
       this.followCam.lookAt(this._lookAt);
     } else {
       this._placeIso();
@@ -120,8 +191,14 @@ export class CameraManager {
   }
 
   _placeFollowImmediate() {
-    this.followCam.position.copy(this.target).add(FOLLOW_OFFSET);
-    this._lookAt.set(this.target.x, this.target.y + FOLLOW_LOOK_HEIGHT, this.target.z);
+    this.followCam.position.copy(this.target).add(this._followOffsetFromYaw(this._visualYaw));
+    const fx = Math.sin(this._visualYaw);
+    const fz = Math.cos(this._visualYaw);
+    this._lookAt.set(
+      this.target.x + fx * FOLLOW_LOOK_AHEAD,
+      this.target.y + FOLLOW_LOOK_HEIGHT,
+      this.target.z + fz * FOLLOW_LOOK_AHEAD,
+    );
     this.followCam.lookAt(this._lookAt);
   }
 

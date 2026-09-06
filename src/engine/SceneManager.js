@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { DualLights } from './lights/DualLights.js';
 import { getMapEntry } from './maps/MapRegistry.js';
+import { LocalTankView } from './tanks/LocalTankView.js';
 
 export class SceneManager {
   constructor() {
@@ -21,6 +22,9 @@ export class SceneManager {
 
     /** @type {THREE.Group | null} */
     this._mapRoot = null;
+
+    /** @type {LocalTankView | null} */
+    this._localTank = null;
   }
 
   /**
@@ -113,6 +117,29 @@ export class SceneManager {
     this.lights?.setMountPose(0, 0, -6, 0);
   }
 
+  /** Procedural local tank. Call after map load. Returns nothing onto the bus. */
+  spawnLocalTank() {
+    this.despawnLocalTank();
+    const view = new LocalTankView();
+    this.scene.add(view.root);
+    this._localTank = view;
+    this.lights?.attachToTank(view.root);
+  }
+
+  /**
+   * @param {{ x: number, y: number, z: number, rotY: number, turretRotY: number }} pose
+   */
+  syncLocalTank(pose) {
+    this._localTank?.setPose(pose);
+  }
+
+  despawnLocalTank() {
+    if (!this._localTank) return;
+    this.lights?.detachFromTank();
+    this._localTank.dispose();
+    this._localTank = null;
+  }
+
   /** Remove current map / placeholder meshes and dispose GPU resources. */
   unloadMap() {
     for (const obj of this._owned) {
@@ -135,6 +162,7 @@ export class SceneManager {
    * Full teardown of scene resources (map unload / GAME_OVER).
    */
   dispose() {
+    this.despawnLocalTank();
     this.unloadMap();
 
     if (this.lights) {

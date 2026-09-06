@@ -11,7 +11,7 @@ Imports: `/src/core/*`, Three.js **math/primitives only** as needed (`Clock`, `B
 ## Responsibilities
 
 - State machine: Boot → Menu → Playing → Paused → GameOver.
-- Tank kinematics: chassis steer/throttle; turret tracking from mouse **raycast results supplied as world-space data**, not by querying DOM style.
+- Tank kinematics: chassis steer/throttle (WASD); independent turret via **left/right arrow keys**, scaled by `dt`. Do not query DOM style for aim.
 - AABB collisions via `THREE.Box3` (no Cannon/Ammo/Rapier).
 - Enemy AI:
   - FOV: `dot(u, v)` cone

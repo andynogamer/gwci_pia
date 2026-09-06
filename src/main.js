@@ -17,8 +17,10 @@ const uiRoot = document.getElementById('ui-root');
 const sceneManager = new SceneManager();
 const cameraManager = new CameraManager();
 const renderer = new Renderer(canvas, eventBus, { sceneManager, cameraManager });
-const game = new GameManager(eventBus);
-const ui = new UIManager(uiRoot, eventBus);
+const game = new GameManager(eventBus, { sceneManager, cameraManager });
+const ui = new UIManager(uiRoot, eventBus, {
+  onQuitToMenu: () => game.endMatch({ winner: '', score: 0 }),
+});
 const api = new ApiClient();
 const net = new NetworkClient(eventBus);
 
@@ -27,6 +29,7 @@ renderer.mount();
 renderer.start();
 game.boot();
 net.bind();
+bindLocalTankInput(game);
 
 void api;
 
@@ -34,4 +37,66 @@ void api;
 if (import.meta.env.DEV) {
   window.__mtaEngine = { renderer, sceneManager, cameraManager, eventBus, get lights() { return sceneManager.lights; } };
   window.__mtaLogic = { game };
+}
+
+/**
+ * WASD hull, arrow keys turret, left click fire.
+ * @param {GameManager} gameManager
+ */
+function bindLocalTankInput(gameManager) {
+  const keys = new Set();
+
+  const syncChassis = () => {
+    const throttle = (keys.has('KeyW') ? 1 : 0) + (keys.has('KeyS') ? -1 : 0);
+    const steer = (keys.has('KeyA') ? 1 : 0) + (keys.has('KeyD') ? -1 : 0);
+    gameManager.setChassisInput(throttle, steer);
+  };
+
+  const syncTurret = () => {
+    const turretSteer =
+      (keys.has('ArrowLeft') ? 1 : 0) + (keys.has('ArrowRight') ? -1 : 0);
+    gameManager.setTurretInput(turretSteer);
+  };
+
+  const isTurretKey = (code) => code === 'ArrowLeft' || code === 'ArrowRight';
+  const isHullKey = (code) =>
+    code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD';
+
+  window.addEventListener('keydown', (e) => {
+    if (isTurretKey(e.code)) {
+      e.preventDefault();
+      keys.add(e.code);
+      syncTurret();
+      return;
+    }
+    if (isHullKey(e.code)) {
+      keys.add(e.code);
+      syncChassis();
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    if (isTurretKey(e.code)) {
+      keys.delete(e.code);
+      syncTurret();
+      return;
+    }
+    if (isHullKey(e.code)) {
+      keys.delete(e.code);
+      syncChassis();
+    }
+  });
+  window.addEventListener('blur', () => {
+    keys.clear();
+    syncChassis();
+    syncTurret();
+  });
+
+  window.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const t = e.target;
+    if (t instanceof Element && t.closest('button, input, select, textarea, a, label, .ui-screen')) {
+      return;
+    }
+    gameManager.tryFire();
+  });
 }

@@ -47,7 +47,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-004](#wi-004) | REQ-COL-LIGHT | Engine | Ambient + tank SpotLight (shadows) | WI-003 | DONE |
 | [WI-005](#wi-005) | REQ-MAPS | Engine | Three thematic arenas | WI-003 | DONE |
 | [WI-006](#wi-006) | boot | Logic | State machine + `THREE.Clock` game loop | WI-001 | DONE |
-| [WI-007](#wi-007) | — | Logic | Local tank chassis + turret (delta-time) | WI-006, WI-003 | TODO |
+| [WI-007](#wi-007) | — | Logic | Local tank chassis + turret (delta-time) | WI-006, WI-003 | DONE |
 | [WI-008](#wi-008) | REQ-COL-LIGHT | Logic | AABB collision manager (`THREE.Box3`) | WI-007, WI-005 | TODO |
 | [WI-009](#wi-009) | REQ-AI-PART, REQ-DIFF | Logic | Enemy FOV, LOS raycast, AI FSM, two difficulties | WI-007, WI-008 | TODO |
 | [WI-010](#wi-010) | REQ-AI-PART | Engine | `THREE.Points` muzzle / impact / smoke / explosion | WI-003 | TODO |
@@ -59,6 +59,8 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | TODO |
 | [WI-017](#wi-017) | REQ-COL-LIGHT | Engine | Shield / ground `ShaderMaterial` | WI-010, WI-011 | TODO |
 | [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | TODO |
+| [WI-019](#wi-019) | playability | UI + Logic + Engine | Pause hits, spawn facing, headlight, turret-follow cam | WI-007 | DONE |
+| [WI-020](#wi-020) | playability | Logic + Engine + UI | Smoother follow cam; turret on arrow keys | WI-019 | DONE |
 
 **Next playable vertical slice:** WI-001 → WI-002 + WI-003 + WI-006 (loop + menus + empty scene).
 
@@ -231,7 +233,7 @@ No DOM. No CSS. No WebSockets.
 - **Out of scope:** enemy AI, network encoding
 - **Acceptance:** Chassis move/steer and turret follow mouse ray in world space; all motion `* dt`. Fire emits `PLAYER_FIRE`.
 - **Dispose / pause:** frozen while Paused
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
@@ -484,3 +486,39 @@ Execute WORK_ITEMS.md WI-018 only.
 Performance and memory gate in Chrome. No new features.
 If a leak is in one agent folder, fix only that folder and note the owner.
 ```
+
+---
+
+### WI-019
+
+- **REQ:** playability (bugs from WI-002 / WI-003 / WI-004 / WI-007)
+- **Agent:** UI + Logic + Engine (one slice; owners stay in their folders)
+- **Scope:** `src/ui/styles`, `src/ui/UIManager.js`, `src/logic/entities/TankController.js`, `src/logic/GameManager.js`, `src/engine/CameraManager.js`, `src/engine/lights/DualLights.js`, `src/engine/tanks/LocalTankView.js`, `src/main.js` wiring
+- **Depends on:** WI-007
+- **Contracts:** existing `GAME_PAUSE` / `GAME_OVER` only
+- **Out of scope:** AABB (WI-008), particles, new EventBus topics
+- **Acceptance:** Pause Resume / Settings / Main Menu are clickable. W drives the hull away from the camera into the arena. Headlight is not shadowed by the barrel. Follow camera sits behind the turret and yaws with the cannon.
+- **Dispose / pause:** pause still freezes sim; Main Menu despawns the tank
+- **Status:** DONE
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-019 only.
+Fix pause overlay hit-testing, spawn facing so W is world-forward,
+move the tank SpotLight clear of the barrel, and follow-camera yaw = turretRotY.
+```
+
+---
+
+### WI-020
+
+- **REQ:** playability (control scheme + camera feel)
+- **Agent:** Logic + Engine + UI
+- **Scope:** `TankController.js`, `GameManager.js`, `CameraManager.js`, `main.js`, `Settings.js`, `CONSTITUTION.md`, `src/logic/AGENTS.md`
+- **Depends on:** WI-019
+- **Contracts:** none new
+- **Out of scope:** mouse-aim turret (removed on purpose)
+- **Acceptance:** Left/Right arrows yaw the cannon independently of WASD hull. Follow camera eases position and yaw (no snappy orbit). Settings keymap lists arrows. Fire remains left click.
+- **Dispose / pause:** turret input ignored while Paused (loop already frozen)
+- **Status:** DONE
