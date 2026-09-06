@@ -75,7 +75,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | DONE |
 | [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | DONE |
 | [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | DONE |
-| [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | TODO |
+| [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | DONE |
 | [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | TODO |
 | [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | TODO |
 | [WI-038](#wi-038) | REQ-MODES | Logic | PVP victor leaves Playing via `GAME_OVER` | WI-016, WI-029 | TODO |
@@ -886,7 +886,7 @@ Update CONTRACTS.md if you add fields. No server physics. No rendering.
 - **Out of scope:** map expand (WI-031); Engine meshes; UI
 - **Acceptance:** On every map `1|2|3`, after `ROOM_READY`, each local tank’s AABB is **fully inside bounds and not intersecting any obstacle**. If a pad coordinate is blocked, Logic nudges to a legal nearby cell (same approach as enemy spawn offsets). W drives clear of cover. PVE `volumes.spawn` still clear. Pads remain ≥ 18 apart after any nudge (or re-pick a clear pair that stays ≥ 18 apart).
 - **Dispose / pause:** n/a
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

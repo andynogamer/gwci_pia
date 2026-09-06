@@ -565,7 +565,7 @@ export class GameManager {
   }
 
   /**
-   * WI-029 — snap local + placeholder opponent to pad A/B from join order.
+   * WI-029 / WI-035 — snap local + placeholder opponent to clear pad A/B.
    * @param {{ roomId?: string, players?: string[] }} payload
    */
   _onRoomReady(payload) {
@@ -575,18 +575,64 @@ export class GameManager {
     const placement = this.duel.applyRoomReady(payload);
     if (!placement) return;
 
-    this.tank.reset(placement.local.x, placement.local.z, placement.local.rotY);
+    const localAt = this._findLegalTankPos(
+      placement.local.x,
+      placement.local.z,
+      LOCAL_TANK_ID,
+    );
+    const remoteAt = this._findLegalTankPos(
+      placement.remote.x,
+      placement.remote.z,
+      placement.remote.id,
+    );
+    const rotY = Math.atan2(remoteAt.x - localAt.x, remoteAt.z - localAt.z);
+    const remoteRotY = Math.atan2(localAt.x - remoteAt.x, localAt.z - remoteAt.z);
+
+    this.tank.reset(localAt.x, localAt.z, rotY);
     this._playerPrevX = this.tank.x;
     this._playerPrevZ = this.tank.z;
-    this._ensureOpponent(placement.remote.id, placement.remote.x, placement.remote.z);
+    this._ensureOpponent(placement.remote.id, remoteAt.x, remoteAt.z);
     if (this.opponent) {
-      this.opponent.rotY = placement.remote.rotY;
-      this.opponent.turretRotY = placement.remote.rotY;
+      this.opponent.rotY = remoteRotY;
+      this.opponent.turretRotY = remoteRotY;
     }
     this._refreshBodies();
     this.cameraManager?.snapFollow();
     this._syncVisuals();
     this._publishHudState();
+  }
+
+  /**
+   * Place a tank AABB on (x,z) or the nearest legal offset (WI-035).
+   * @param {number} x
+   * @param {number} z
+   * @param {string} ignoreId
+   * @returns {{ x: number, z: number }}
+   */
+  _findLegalTankPos(x, z, ignoreId) {
+    this._refreshBodies();
+    let at = this.collision.resolveTankMove(x, z, x, z, ignoreId);
+    if (!at.blocked) return { x: at.x, z: at.z };
+
+    const offsets = [
+      [3, 0],
+      [-3, 0],
+      [0, 3],
+      [0, -3],
+      [4, 4],
+      [-4, -4],
+      [6, 0],
+      [-6, 0],
+      [0, 6],
+      [0, -6],
+      [8, 2],
+      [-8, -2],
+    ];
+    for (const [ox, oz] of offsets) {
+      at = this.collision.resolveTankMove(x + ox, z + oz, x + ox, z + oz, ignoreId);
+      if (!at.blocked) return { x: at.x, z: at.z };
+    }
+    return { x, z };
   }
 
   /**
@@ -704,23 +750,11 @@ export class GameManager {
   _spawnEnemyAt(x, z, index, config, px, pz, difficulty = Difficulty.EASY) {
     const id = `enemy-${index}`;
     const fireCooldown = 1 / Math.max(0.05, config.fireRate);
+    const at = this._findLegalTankPos(x, z, id);
+    // Still blocked after offsets — skip spawn.
     this._refreshBodies();
-    let at = this.collision.resolveTankMove(x, z, x, z, id);
-    if (at.blocked) {
-      const offsets = [
-        [3, 0],
-        [-3, 0],
-        [0, 3],
-        [0, -3],
-        [4, 4],
-        [-4, -4],
-      ];
-      for (const [ox, oz] of offsets) {
-        at = this.collision.resolveTankMove(x + ox, z + oz, x + ox, z + oz, id);
-        if (!at.blocked) break;
-      }
-    }
-    if (at.blocked) return;
+    const check = this.collision.resolveTankMove(at.x, at.z, at.x, at.z, id);
+    if (check.blocked) return;
 
     const sx = at.x;
     const sz = at.z;

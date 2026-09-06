@@ -120,10 +120,10 @@ const BY_MAP = {
       [26, -28, 0],
       [-26, -28, 0],
     ],
-    // WI-029 — opposite duel pads (≥ 18 apart), inside ARENA_HALF.
+    // WI-029 / WI-035 — opposite duel pads (≥ 18 apart), clear of obstacles.
     pvpPads: [
-      [-16, 0],
-      [16, 0],
+      [-24, 0],
+      [24, 0],
     ],
     bounds: arenaBounds(),
     obstacles: desertObstacles(),
@@ -140,8 +140,8 @@ const BY_MAP = {
       [-28, 4, Math.PI / 2],
     ],
     pvpPads: [
-      [-16, 10],
-      [16, 10],
+      [-24, 0],
+      [24, 0],
     ],
     bounds: arenaBounds(),
     obstacles: industrialObstacles(),
@@ -158,8 +158,8 @@ const BY_MAP = {
       [-26, 10, 0],
     ],
     pvpPads: [
-      [-16, -6],
-      [16, -6],
+      [-24, 0],
+      [24, 0],
     ],
     bounds: arenaBounds(),
     obstacles: lunarObstacles(),
