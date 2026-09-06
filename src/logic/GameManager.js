@@ -1,5 +1,5 @@
 /**
- * Agent-Logic — match loop, AABB, AI, audio, items, PVE waves (WI-006–012).
+ * Agent-Logic — match loop, AABB, AI, audio, items, PVE/PVP modes (WI-006–016).
  * Boot → Menu → Playing → Paused → GameOver.
  */
 import { Clock } from 'three';
@@ -10,6 +10,7 @@ import { EnemyAI } from './ai/EnemyAI.js';
 import { AudioSystem } from './audio/AudioSystem.js';
 import { ItemSystem, REPAIR_AMOUNT } from './items/ItemSystem.js';
 import { HordeSurvival } from './gamemodes/HordeSurvival.js';
+import { NetworkDuel } from './gamemodes/NetworkDuel.js';
 
 const VALID_MODES = new Set(Object.values(GameMode));
 const VALID_DIFFICULTIES = new Set(Object.values(Difficulty));
@@ -30,12 +31,17 @@ function yawShot(shot, yaw) {
 export class GameManager {
   /**
    * @param {import('../core/EventBus.js').EventBus} bus
-   * @param {{ sceneManager?: import('../engine/SceneManager.js').SceneManager, cameraManager?: import('../engine/CameraManager.js').CameraManager }} [facades]
+   * @param {{
+   *   sceneManager?: import('../engine/SceneManager.js').SceneManager,
+   *   cameraManager?: import('../engine/CameraManager.js').CameraManager,
+   *   getLocalPlayerId?: () => string,
+   * }} [facades]
    */
   constructor(bus, facades = {}) {
     this.bus = bus;
     this.sceneManager = facades.sceneManager ?? null;
     this.cameraManager = facades.cameraManager ?? null;
+    this.getLocalPlayerId = facades.getLocalPlayerId ?? (() => LOCAL_TANK_ID);
     this.state = GameState.BOOT;
     this.clock = new Clock(false);
     /** @type {{ mode: string, mapId: number, difficulty: string } | null} */
@@ -53,6 +59,10 @@ export class GameManager {
     this.enemies = [];
     /** @type {HordeSurvival | null} */
     this.horde = null;
+    /** @type {NetworkDuel | null} */
+    this.duel = null;
+    /** @type {{ id: string, x: number, y: number, z: number, rotY: number, turretRotY: number, hp: number, maxHp: number } | null} */
+    this.opponent = null;
     this._playerPrevX = 0;
     this._playerPrevZ = 0;
 
@@ -77,6 +87,12 @@ export class GameManager {
     this._unsubs.push(
       this.bus.on(Topics.SETTINGS_UPDATED, (payload) => this.audio.applySettings(payload)),
     );
+    this._unsubs.push(
+      this.bus.on(Topics.CLIENT_STATE_UPDATE, (payload) => this._onClientState(payload)),
+    );
+    this._unsubs.push(
+      this.bus.on(Topics.PLAYER_FIRE, (payload) => this._onRemoteFire(payload)),
+    );
 
     this._scheduleLoop();
   }
@@ -98,6 +114,7 @@ export class GameManager {
     this.hp = this.maxHp;
     this._clearEnemies();
     this._teardownHorde();
+    this._teardownDuel();
     this.items.clear();
     const volumes = this.collision.loadMap(payload.mapId);
     const spawn = volumes.spawn ?? [0, 6];
@@ -109,6 +126,8 @@ export class GameManager {
     this._refreshBodies();
     if (payload.mode === GameMode.PVE) {
       this._startHorde(volumes, payload.difficulty);
+    } else if (payload.mode === GameMode.PVP) {
+      this._startDuel(volumes);
     }
     this.items.spawn(volumes.items ?? []);
     this.sceneManager?.syncPickups(this._pickupViews());
@@ -159,6 +178,7 @@ export class GameManager {
     this.audio.setPaused(false);
     this._clearEnemies();
     this._teardownHorde();
+    this._teardownDuel();
     this.items.clear();
     this.collision.clear();
     this.sceneManager?.clearPickups();
@@ -222,16 +242,29 @@ export class GameManager {
     this._playerPrevZ = this.tank.z;
 
     this._tickEnemies(dt, playerVx, playerVz);
+    this._syncOpponentBody();
 
     this._refreshBodies();
     const tanks = [
       { id: LOCAL_TANK_ID, x: this.tank.x, z: this.tank.z },
       ...this.enemies.map((e) => ({ id: e.id, x: e.tank.x, z: e.tank.z })),
+      ...(this.opponent ? [{ id: this.opponent.id, x: this.opponent.x, z: this.opponent.z }] : []),
     ];
     this.collision.updateProjectiles(dt, tanks, (entityId) => this._damage(entityId, SHOT_DAMAGE));
 
     this.items.update(dt);
     this.horde?.update(dt);
+    if (this.duel) {
+      const pose = this.tank.getPose();
+      this.duel.update(dt, {
+        x: pose.x,
+        y: pose.y,
+        z: pose.z,
+        rotY: pose.rotY,
+        turretRotY: pose.turretRotY,
+        hp: this.hp,
+      });
+    }
 
     if (this.state !== GameState.PLAYING) return;
     this._syncVisuals();
@@ -244,6 +277,12 @@ export class GameManager {
   _damage(entityId, amount) {
     if (this.state !== GameState.PLAYING) return;
     if (this.items.hasShield(entityId)) return;
+
+    // PVP: opponent HP is authoritative from remote CLIENT_STATE_UPDATE only.
+    if (this.duel && this.opponent && entityId === this.opponent.id) {
+      return;
+    }
+
     if (entityId === LOCAL_TANK_ID) {
       this.hp = Math.max(0, this.hp - amount);
       this.bus.emit(Topics.TANK_DAMAGED, {
@@ -253,7 +292,10 @@ export class GameManager {
       });
       if (this.hp <= 0) {
         this.audio.playSfx('explosion');
-        const defeat = this.horde?.defeatResult() ?? { winner: 'arena', score: 0 };
+        const defeat =
+          this.horde?.defeatResult() ??
+          this.duel?.defeatResult() ??
+          { winner: 'arena', score: 0 };
         this.endMatch(defeat);
       }
       return;
@@ -302,6 +344,15 @@ export class GameManager {
         z: e.tank.z,
       })),
       horde: this.horde?.getDebug() ?? null,
+      duel: this.duel?.getDebug() ?? null,
+      opponent: this.opponent
+        ? {
+            id: this.opponent.id,
+            hp: this.opponent.hp,
+            x: this.opponent.x,
+            z: this.opponent.z,
+          }
+        : null,
     };
   }
 
@@ -313,6 +364,7 @@ export class GameManager {
     this.clock.stop();
     this._clearEnemies();
     this._teardownHorde();
+    this._teardownDuel();
     this.items.clear();
     this.collision.clear();
     this.sceneManager?.clearPickups();
@@ -333,6 +385,15 @@ export class GameManager {
     this.sceneManager?.syncLocalTank(pose);
     for (const enemy of this.enemies) {
       this.sceneManager?.syncEnemyTank(enemy.id, enemy.tank.getPose());
+    }
+    if (this.opponent) {
+      this.sceneManager?.syncEnemyTank(this.opponent.id, {
+        x: this.opponent.x,
+        y: this.opponent.y,
+        z: this.opponent.z,
+        rotY: this.opponent.rotY,
+        turretRotY: this.opponent.turretRotY,
+      });
     }
     this.sceneManager?.syncProjectiles(
       this.collision.projectiles.map((p) => ({
@@ -385,6 +446,9 @@ export class GameManager {
     this.collision.bodies = [
       { id: LOCAL_TANK_ID, x: this.tank.x, z: this.tank.z },
       ...this.enemies.map((e) => ({ id: e.id, x: e.tank.x, z: e.tank.z })),
+      ...(this.opponent
+        ? [{ id: this.opponent.id, x: this.opponent.x, z: this.opponent.z }]
+        : []),
     ];
   }
 
@@ -406,6 +470,104 @@ export class GameManager {
       },
     });
     this.horde.start();
+  }
+
+  /**
+   * @param {{ enemies?: Array<[number, number, number?]>, spawn?: [number, number] }} volumes
+   */
+  _startDuel(volumes) {
+    const localId = String(this.getLocalPlayerId() || LOCAL_TANK_ID);
+    const spot = volumes.enemies?.[0];
+    this.duel = new NetworkDuel({
+      localId,
+      publishLocalState: (payload) => {
+        this.bus.emit(Topics.CLIENT_STATE_UPDATE, payload);
+      },
+      onVictory: (result) => {
+        this.audio.playSfx('explosion');
+        this.endMatch(result);
+      },
+    });
+    this.duel.start();
+
+    if (spot) {
+      this._ensureOpponent(null, spot[0], spot[1]);
+    }
+  }
+
+  /**
+   * @param {string | null} id
+   * @param {number} [x]
+   * @param {number} [z]
+   */
+  _ensureOpponent(id, x = 12, z = -14) {
+    const oid = id ? String(id) : this.opponent?.id ?? 'remote';
+    if (this.opponent && this.opponent.id === oid) return;
+    if (this.opponent && this.opponent.id !== oid) {
+      this.sceneManager?.despawnEnemyTank(this.opponent.id);
+    }
+    this.opponent = {
+      id: oid,
+      x,
+      y: 0,
+      z,
+      rotY: 0,
+      turretRotY: 0,
+      hp: this.maxHp,
+      maxHp: this.maxHp,
+    };
+    this.sceneManager?.spawnEnemyTank(oid);
+    this._refreshBodies();
+  }
+
+  _syncOpponentBody() {
+    if (!this.opponent || !this.duel?.remote) return;
+    const r = this.duel.remote;
+    this.opponent.x = r.pos[0];
+    this.opponent.y = r.pos[1];
+    this.opponent.z = r.pos[2];
+    this.opponent.rotY = r.rotY;
+    this.opponent.turretRotY = r.turretRotY;
+    this.opponent.hp = r.hp;
+  }
+
+  /**
+   * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number }} payload
+   */
+  _onClientState(payload) {
+    if (!this.duel || this.state !== GameState.PLAYING && this.state !== GameState.PAUSED) {
+      return;
+    }
+    if (!this.duel.applyRemoteState(payload)) return;
+    const r = this.duel.remote;
+    if (!r) return;
+    this._ensureOpponent(r.id, r.pos[0], r.pos[2]);
+    this._syncOpponentBody();
+    this.bus.emit(Topics.TANK_DAMAGED, {
+      entityId: r.id,
+      currentHp: r.hp,
+      maxHp: this.maxHp,
+    });
+  }
+
+  /**
+   * Remote fire relayed by Network onto the bus (isLocal === false).
+   * @param {{ origin?: number[], direction?: number[], isLocal?: boolean }} payload
+   */
+  _onRemoteFire(payload) {
+    if (!this.duel || this.state !== GameState.PLAYING) return;
+    if (!payload || payload.isLocal !== false) return;
+    if (!Array.isArray(payload.origin) || !Array.isArray(payload.direction)) return;
+    const ownerId = this.opponent?.id ?? this.duel.remoteId ?? 'remote';
+    this.collision.spawnProjectile(
+      {
+        origin: payload.origin,
+        direction: payload.direction,
+        isLocal: false,
+      },
+      ownerId,
+    );
+    this.audio.playSfx('fire');
   }
 
   /**
@@ -456,6 +618,15 @@ export class GameManager {
   _teardownHorde() {
     this.horde?.reset();
     this.horde = null;
+  }
+
+  _teardownDuel() {
+    if (this.opponent) {
+      this.sceneManager?.despawnEnemyTank(this.opponent.id);
+      this.opponent = null;
+    }
+    this.duel?.reset();
+    this.duel = null;
   }
 
   /**

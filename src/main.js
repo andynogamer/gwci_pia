@@ -17,13 +17,17 @@ const uiRoot = document.getElementById('ui-root');
 const sceneManager = new SceneManager();
 const cameraManager = new CameraManager();
 const renderer = new Renderer(canvas, eventBus, { sceneManager, cameraManager });
-const game = new GameManager(eventBus, { sceneManager, cameraManager });
+const net = new NetworkClient(eventBus);
+const game = new GameManager(eventBus, {
+  sceneManager,
+  cameraManager,
+  getLocalPlayerId: () => net.playerId,
+});
 const api = new ApiClient();
 const ui = new UIManager(uiRoot, eventBus, {
   onQuitToMenu: () => game.endMatch({ winner: '', score: 0 }),
   getScores: (limit) => api.getScores(limit),
 });
-const net = new NetworkClient(eventBus);
 
 renderer.mount();
 renderer.start();

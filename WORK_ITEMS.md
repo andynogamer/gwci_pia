@@ -56,7 +56,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-013](#wi-013) | REQ-SRV-DB | Network | MySQL schema, auth + scores REST | WI-001 | DONE |
 | [WI-014](#wi-014) | REQ-UI, REQ-SRV-DB | UI | Settings `localStorage`; highscores table from API | WI-002, WI-013 | DONE |
 | [WI-015](#wi-015) | REQ-MULTI | Network | WebSocket 1v1 rooms + `CLIENT_STATE_UPDATE` | WI-007, WI-013 | DONE |
-| [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | TODO |
+| [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | DONE |
 | [WI-017](#wi-017) | REQ-COL-LIGHT | Engine | Shield / ground `ShaderMaterial` | WI-010, WI-011 | TODO |
 | [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | TODO |
 | [WI-019](#wi-019) | playability | UI + Logic + Engine | Pause hits, spawn facing, headlight, turret-follow cam | WI-007 | DONE |
@@ -435,7 +435,7 @@ Relay only. No rendering. No collision/damage logic.
 - **Out of scope:** `ws` / Express internals
 - **Acceptance:** Duel rules consume remote state from the bus, not a local AI opponent as authority. Offline PVE still works.
 - **Dispose / pause:** match teardown on GAME_OVER
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
