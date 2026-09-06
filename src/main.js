@@ -23,15 +23,17 @@ const game = new GameManager(eventBus, {
   sceneManager,
   cameraManager,
   getLocalPlayerId: () => net.playerId,
+  getLocalUsername: () => net.getUsername() || '',
 });
 const ui = new UIManager(uiRoot, eventBus, {
   onQuitToMenu: () => game.endMatch({ winner: '', score: 0 }),
   getScores: (limit) => api.getScores(limit),
   register: (username, password) => api.register(username, password),
   login: (username, password) => api.login(username, password),
-  onSession: ({ token }) => {
+  onSession: ({ token, username }) => {
     api.setToken(token);
     net.setToken(token);
+    net.setUsername(username);
   },
 });
 

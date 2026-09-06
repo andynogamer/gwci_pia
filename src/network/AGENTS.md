@@ -33,6 +33,8 @@ Network Duel (`GAME_START.mode === "PVP"`) requires a Bearer token (WI-028). Do 
 
 Local `ITEM_COLLECTED` (with `pickupId`) relays as WS `PICKUP_TAKEN` so both clients hide the same loot (WI-034). Do not grant buffs from remote takes.
 
+`CLIENT_STATE_UPDATE.username` carries the signed-in account name (WI-036). `setUsername` / `getUsername` are wired from the UI session; Logic uses them for `GAME_OVER.winner` (never emit raw `playerId`).
+
 ## PVP room id (WI-027)
 
 Both clients must Deploy **Network Duel** with the **same arena**:

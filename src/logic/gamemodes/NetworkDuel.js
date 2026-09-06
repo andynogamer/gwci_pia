@@ -2,6 +2,7 @@
  * REQ-MODES — Network Duel (PvP rules). Transport is Agent-Network.
  * Consumes EventBus CLIENT_STATE_UPDATE / ROOM_READY / remote PLAYER_FIRE — no WebSockets.
  * WI-029: pad A/B from ROOM_READY.players[] index; hold control until ready.
+ * WI-036: GAME_OVER.winner is registered username, never player UUID.
  */
 
 const WIN_SCORE_BASE = 1000;
@@ -14,15 +15,17 @@ export class NetworkDuel {
   /**
    * @param {{
    *   localId: string,
+   *   localUsername?: string,
    *   pads?: Array<[number, number]>,
    *   publishLocalState: (payload: {
-   *     id: string, timestamp: number, pos: number[], rotY: number, turretRotY: number, hp: number
+   *     id: string, timestamp: number, pos: number[], rotY: number, turretRotY: number, hp: number, username: string
    *   }) => void,
    *   onVictory: (result: { winner: string, score: number }) => void,
    * }} hooks
    */
   constructor(hooks) {
     this.localId = String(hooks.localId || 'local');
+    this.localUsername = String(hooks.localUsername || '').trim();
     this._publishLocalState = hooks.publishLocalState;
     this._onVictory = hooks.onVictory;
     const pads = hooks.pads ?? DEFAULT_PADS;
@@ -34,6 +37,8 @@ export class NetworkDuel {
 
     /** @type {string | null} */
     this.remoteId = null;
+    /** @type {string} */
+    this.remoteUsername = '';
     /** @type {{
      *   id: string, timestamp: number, pos: number[], rotY: number, turretRotY: number, hp: number
      * } | null} */
@@ -49,6 +54,7 @@ export class NetworkDuel {
 
   start() {
     this.remoteId = null;
+    this.remoteUsername = '';
     this.remote = null;
     this.score = 0;
     this.phase = 'waiting';
@@ -114,12 +120,13 @@ export class NetworkDuel {
       rotY: local.rotY,
       turretRotY: local.turretRotY,
       hp: local.hp,
+      username: this.localUsername,
     });
   }
 
   /**
    * Apply opponent telemetry from EventBus (remote peer only).
-   * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number }} payload
+   * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number, username?: string }} payload
    * @returns {boolean} true if this update belongs to the remote peer
    */
   applyRemoteState(payload) {
@@ -134,6 +141,9 @@ export class NetworkDuel {
     }
 
     this.remoteId = id;
+    if (typeof payload.username === 'string' && payload.username.trim()) {
+      this.remoteUsername = payload.username.trim();
+    }
     this.remote = {
       id,
       timestamp,
@@ -150,19 +160,20 @@ export class NetworkDuel {
   }
 
   /**
-   * Local tank destroyed — opponent wins.
+   * Local tank destroyed — opponent wins (username, never UUID).
    * @returns {{ winner: string, score: number }}
    */
   defeatResult() {
     this.phase = 'over';
     return {
-      winner: this.remoteId ? String(this.remoteId) : 'opponent',
+      winner: this.remoteUsername || '',
       score: this.score,
     };
   }
 
   reset() {
     this.remoteId = null;
+    this.remoteUsername = '';
     this.remote = null;
     this.score = 0;
     this.phase = 'idle';
@@ -175,7 +186,9 @@ export class NetworkDuel {
     return {
       phase: this.phase,
       localId: this.localId,
+      localUsername: this.localUsername,
       remoteId: this.remoteId,
+      remoteUsername: this.remoteUsername,
       remoteHp: this.remote?.hp ?? null,
       score: this.score,
       slot: this.slot,
@@ -188,6 +201,6 @@ export class NetworkDuel {
     if (this.phase !== 'active') return;
     this.phase = 'over';
     this.score = WIN_SCORE_BASE;
-    this._onVictory({ winner: 'player', score: this.score });
+    this._onVictory({ winner: this.localUsername || '', score: this.score });
   }
 }

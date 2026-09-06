@@ -54,6 +54,11 @@ All payloads are plain JSON-serializable objects. Agents must not attach Three.j
 }
 ```
 
+| Field | Type | Notes |
+| --- | --- | --- |
+| `winner` | string | **PVE:** `"player"` \| `"arena"` \| `""` (quit). **PVP:** registered **username** of the victor (never a `playerId` UUID); `""` on quit / abort |
+| `score` | number | Match score (REST POST uses this numeric field only) |
+
 **Publishers:** Agent-Logic only  
 **Subscribers:** Agent-UI (game-over / menu), Agent-Network (score submit when authenticated)
 
@@ -190,7 +195,7 @@ Mirrors WebSocket §B `MATCH_END` without the `event` discriminator. Ends the lo
 
 ### CLIENT_STATE_UPDATE
 
-Same numeric fields as WebSocket §B (`id`, `timestamp`, `pos`, `rotY`, `turretRotY`, `hp`). EventBus payloads omit the WS `event` discriminator.
+Same numeric fields as WebSocket §B (`id`, `timestamp`, `pos`, `rotY`, `turretRotY`, `hp`) plus display identity. EventBus payloads omit the WS `event` discriminator.
 
 ```json
 {
@@ -199,12 +204,17 @@ Same numeric fields as WebSocket §B (`id`, `timestamp`, `pos`, `rotY`, `turretR
   "pos": [0, 0, 0],
   "rotY": 0,
   "turretRotY": 0,
-  "hp": 100
+  "hp": 100,
+  "username": "string"
 }
 ```
 
+| Field | Type | Notes |
+| --- | --- | --- |
+| `username` | string | Registered account name (WI-036). Present on PVP ticks; used for `GAME_OVER.winner`, not for physics |
+
 **Publishers:** Agent-Logic (local pose tick while PVP), Agent-Network (remote peer relay)  
-**Subscribers:** Agent-Network (relay local id to WS), Agent-Logic (apply remote opponent — WI-016)
+**Subscribers:** Agent-Network (relay local id to WS), Agent-Logic (apply remote opponent — WI-016 / username for GAME_OVER)
 
 ---
 
@@ -222,7 +232,8 @@ Client → Server → broadcast to opponent.
   "pos": [0, 0, 0],
   "rotY": 0,
   "turretRotY": 0,
-  "hp": 100
+  "hp": 100,
+  "username": "string"
 }
 ```
 
@@ -235,6 +246,7 @@ Client → Server → broadcast to opponent.
 | `rotY` | number | Chassis yaw (radians) |
 | `turretRotY` | number | Turret yaw (radians) |
 | `hp` | number | Current hit points (display/sync only; logic remains damage authority on each peer per server broadcast rules) |
+| `username` | string | Registered username for GAME_OVER display (WI-036) |
 
 ### JOIN_ROOM
 

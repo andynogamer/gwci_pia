@@ -76,7 +76,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | DONE |
 | [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | DONE |
 | [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | DONE |
-| [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | TODO |
+| [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | DONE |
 | [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | TODO |
 | [WI-038](#wi-038) | REQ-MODES | Logic | PVP victor leaves Playing via `GAME_OVER` | WI-016, WI-029 | TODO |
 
@@ -915,7 +915,7 @@ No engine meshes. No UI. Do not expand arena HALF (WI-031).
 - **Out of scope:** Game Over CSS / DOM layout (WI-037); REST schema change; server AABB
 - **Acceptance:** After a PVP kill, both clients’ `GAME_OVER.winner` is a registered username (or empty on quit), never a raw `playerId` UUID. PVE still emits `player` / `arena`. Score POST (WI-026) still uses numeric `score` only.
 - **Dispose / pause:** n/a
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

@@ -42,6 +42,8 @@ export class NetworkClient {
     this.roomId = DEFAULT_ROOM_ID;
     this.roomReady = false;
     this.token = null;
+    /** @type {string | null} Registered username for PVP GAME_OVER (WI-036). */
+    this.username = null;
     /** @type {{ mode: string, difficulty: string } | null} */
     this._match = null;
     /** @type {object | null} Last outbound CLIENT_STATE_UPDATE (resent on ROOM_READY). */
@@ -63,6 +65,17 @@ export class NetworkClient {
   setToken(token) {
     this.token = token && String(token).trim() ? String(token) : null;
     this.api?.setToken?.(this.token);
+  }
+
+  /**
+   * @param {string | null} username
+   */
+  setUsername(username) {
+    this.username = username && String(username).trim() ? String(username).trim() : null;
+  }
+
+  getUsername() {
+    return this.username;
   }
 
   bind() {
@@ -150,10 +163,14 @@ export class NetworkClient {
 
   /**
    * Push local pose/hp to the opponent (also used when Logic emits CLIENT_STATE_UPDATE).
-   * @param {{ pos: number[], rotY: number, turretRotY: number, hp: number, id?: string, timestamp?: number }} payload
+   * @param {{ pos: number[], rotY: number, turretRotY: number, hp: number, id?: string, timestamp?: number, username?: string }} payload
    */
   sendState(payload) {
     if (!payload || !Array.isArray(payload.pos) || payload.pos.length !== 3) return;
+    const username =
+      (typeof payload.username === 'string' && payload.username.trim()) ||
+      this.username ||
+      '';
     const frame = {
       event: 'CLIENT_STATE_UPDATE',
       id: this.playerId,
@@ -162,6 +179,7 @@ export class NetworkClient {
       rotY: Number(payload.rotY) || 0,
       turretRotY: Number(payload.turretRotY) || 0,
       hp: Number(payload.hp) || 0,
+      username,
     };
     this._lastStateFrame = frame;
     this._send(frame);
@@ -311,19 +329,24 @@ export class NetworkClient {
   }
 
   /**
-   * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number }} msg
+   * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number, username?: string }} msg
    */
   _emitRemoteState(msg) {
     if (!msg || msg.id === this.playerId) return;
     if (!Array.isArray(msg.pos) || msg.pos.length !== 3) return;
-    this.bus.emit(Topics.CLIENT_STATE_UPDATE, {
+    /** @type {{ id: string, timestamp: number, pos: number[], rotY: number, turretRotY: number, hp: number, username?: string }} */
+    const payload = {
       id: String(msg.id),
       timestamp: Number(msg.timestamp) || Date.now(),
       pos: [Number(msg.pos[0]), Number(msg.pos[1]), Number(msg.pos[2])],
       rotY: Number(msg.rotY) || 0,
       turretRotY: Number(msg.turretRotY) || 0,
       hp: Number(msg.hp) || 0,
-    });
+    };
+    if (typeof msg.username === 'string' && msg.username.trim()) {
+      payload.username = msg.username.trim();
+    }
+    this.bus.emit(Topics.CLIENT_STATE_UPDATE, payload);
   }
 
   _sendJoin() {

@@ -36,6 +36,7 @@ export class GameManager {
    *   sceneManager?: import('../engine/SceneManager.js').SceneManager,
    *   cameraManager?: import('../engine/CameraManager.js').CameraManager,
    *   getLocalPlayerId?: () => string,
+   *   getLocalUsername?: () => string,
    * }} [facades]
    */
   constructor(bus, facades = {}) {
@@ -43,6 +44,7 @@ export class GameManager {
     this.sceneManager = facades.sceneManager ?? null;
     this.cameraManager = facades.cameraManager ?? null;
     this.getLocalPlayerId = facades.getLocalPlayerId ?? (() => LOCAL_TANK_ID);
+    this.getLocalUsername = facades.getLocalUsername ?? (() => '');
     this.state = GameState.BOOT;
     this.clock = new Clock(false);
     /** @type {{ mode: string, mapId: number, difficulty: string } | null} */
@@ -549,6 +551,7 @@ export class GameManager {
 
     this.duel = new NetworkDuel({
       localId,
+      localUsername: String(this.getLocalUsername() || '').trim(),
       pads,
       publishLocalState: (payload) => {
         this.bus.emit(Topics.CLIENT_STATE_UPDATE, payload);
@@ -650,9 +653,10 @@ export class GameManager {
       return;
     }
 
-    // Remaining client: opponent left or timed out → forfeit win.
+    // Remaining client: opponent left or timed out → forfeit win (local username).
     const score = Number(this.duel.score) || 0;
-    this.endMatch({ winner: 'player', score });
+    const winner = String(this.getLocalUsername() || '').trim();
+    this.endMatch({ winner, score });
   }
 
   /**
