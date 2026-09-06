@@ -1,9 +1,9 @@
 /**
  * Agent-Engine — scene graph ownership and map load/unload + dispose.
- * Placeholder geometry only until WI-005 (three arenas).
  */
 import * as THREE from 'three';
 import { DualLights } from './lights/DualLights.js';
+import { getMapEntry } from './maps/MapRegistry.js';
 
 export class SceneManager {
   constructor() {
@@ -16,22 +16,26 @@ export class SceneManager {
     /** @type {THREE.Object3D[]} */
     this._owned = [];
 
-    /** @type {THREE.Mesh | null} */
-    this._marker = null;
-
     /** @type {DualLights | null} */
     this.lights = null;
 
-    this._spinRadPerSec = 0.6;
+    /** @type {THREE.Group | null} */
+    this._mapRoot = null;
   }
 
   /**
-   * Boot visuals so the canvas shows a live frame before maps exist (WI-005).
-   * Uses lit materials so Ambient + SpotLight (WI-004) are visible.
+   * Boot visuals before a match map is chosen (menu backdrop).
    */
   preparePlaceholder() {
-    this.clearOwned();
+    this.unloadMap();
     this._ensureLights();
+    this._applyTheme({
+      background: 0x0e141c,
+      fog: null,
+      ambient: 0x9eb6cc,
+      ambientIntensity: 0.4,
+      spot: 0xfff0d0,
+    });
 
     const groundGeo = new THREE.PlaneGeometry(40, 40);
     const groundMat = new THREE.MeshStandardMaterial({
@@ -41,7 +45,6 @@ export class SceneManager {
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
     ground.receiveShadow = true;
     this.scene.add(ground);
     this._owned.push(ground);
@@ -57,26 +60,12 @@ export class SceneManager {
       roughness: 0.55,
       metalness: 0.15,
     });
-    this._marker = new THREE.Mesh(markerGeo, markerMat);
-    this._marker.position.set(0, 0.7, 0);
-    this._marker.castShadow = true;
-    this._marker.receiveShadow = true;
-    this.scene.add(this._marker);
-    this._owned.push(this._marker);
-
-    // Extra caster so SpotLight shadows are obvious under the headlight beam.
-    const pillarGeo = new THREE.BoxGeometry(1.2, 2.4, 1.2);
-    const pillarMat = new THREE.MeshStandardMaterial({
-      color: 0x5a6a7a,
-      roughness: 0.8,
-      metalness: 0.2,
-    });
-    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-    pillar.position.set(2.5, 1.2, 3);
-    pillar.castShadow = true;
-    pillar.receiveShadow = true;
-    this.scene.add(pillar);
-    this._owned.push(pillar);
+    const marker = new THREE.Mesh(markerGeo, markerMat);
+    marker.position.set(0, 0.7, 0);
+    marker.castShadow = true;
+    marker.receiveShadow = true;
+    this.scene.add(marker);
+    this._owned.push(marker);
   }
 
   _ensureLights() {
@@ -87,77 +76,122 @@ export class SceneManager {
   }
 
   /**
-   * Store map selection only — arena meshes are WI-005.
+   * @param {{ background: number, fog: number | null, fogNear?: number, fogFar?: number, ambient: number, ambientIntensity: number, spot: number }} theme
+   */
+  _applyTheme(theme) {
+    this.scene.background = new THREE.Color(theme.background);
+    if (theme.fog != null) {
+      this.scene.fog = new THREE.Fog(theme.fog, theme.fogNear ?? 25, theme.fogFar ?? 70);
+    } else {
+      this.scene.fog = null;
+    }
+    if (this.lights) {
+      this.lights.ambient.color.setHex(theme.ambient);
+      this.lights.ambient.intensity = theme.ambientIntensity;
+      this.lights.spot.color.setHex(theme.spot);
+    }
+  }
+
+  /**
+   * Load arena by GAME_START.mapId (1|2|3). Disposes previous map first.
    * @param {1 | 2 | 3} mapId
    */
   loadMap(mapId) {
+    const entry = getMapEntry(mapId);
+    if (!entry) return;
+
+    this.unloadMap();
     this.mapId = mapId;
-    if (this._owned.length === 0) {
-      this.preparePlaceholder();
-    } else {
-      this._ensureLights();
-    }
+    this._ensureLights();
+    this._applyTheme(entry.theme);
+
+    const root = entry.build();
+    this.scene.add(root);
+    this._mapRoot = root;
+    this._owned.push(root);
+
+    this.lights?.setMountPose(0, 0, -6, 0);
   }
 
-  /**
-   * @param {number} dt seconds
-   */
-  update(dt) {
-    if (!this._marker || dt <= 0) return;
-    this._marker.rotation.y += this._spinRadPerSec * dt;
-  }
-
-  /**
-   * Remove and dispose owned geometries / materials / textures.
-   */
-  clearOwned() {
+  /** Remove current map / placeholder meshes and dispose GPU resources. */
+  unloadMap() {
     for (const obj of this._owned) {
       this.scene.remove(obj);
-      this._disposeObject(obj);
+      this._disposeTree(obj);
     }
     this._owned.length = 0;
-    this._marker = null;
+    this._mapRoot = null;
+    this.mapId = null;
+  }
+
+  /**
+   * @param {number} _dt seconds
+   */
+  update(_dt) {
+    // Map meshes are static; particle/FX updates live elsewhere.
   }
 
   /**
    * Full teardown of scene resources (map unload / GAME_OVER).
    */
   dispose() {
-    this.clearOwned();
-    this.mapId = null;
+    this.unloadMap();
 
     if (this.lights) {
       this.lights.dispose();
       this.lights = null;
     }
 
-    this.scene.traverse((obj) => {
-      this._disposeObject(obj);
-    });
+    this.scene.fog = null;
+    this.scene.background = null;
 
-    while (this.scene.children.length > 0) {
-      this.scene.remove(this.scene.children[0]);
+    const leftover = [...this.scene.children];
+    for (const child of leftover) {
+      this.scene.remove(child);
+      this._disposeTree(child);
     }
   }
 
   /**
-   * @param {THREE.Object3D} obj
+   * @param {THREE.Object3D} root
    */
-  _disposeObject(obj) {
-    if (obj.geometry) {
-      obj.geometry.dispose();
-    }
-    if (obj.material) {
-      const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
-      for (const mat of materials) {
-        for (const key of Object.keys(mat)) {
-          const value = mat[key];
-          if (value && typeof value === 'object' && value.isTexture) {
-            value.dispose();
-          }
-        }
-        mat.dispose();
+  _disposeTree(root) {
+    /** @type {Set<THREE.BufferGeometry>} */
+    const geometries = new Set();
+    /** @type {Set<THREE.Material>} */
+    const materials = new Set();
+    /** @type {THREE.Light[]} */
+    const lights = [];
+
+    root.traverse((obj) => {
+      if (obj.isLight) {
+        lights.push(obj);
       }
+      if (obj.geometry) {
+        geometries.add(obj.geometry);
+      }
+      if (obj.material) {
+        const list = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const mat of list) {
+          materials.add(mat);
+        }
+      }
+    });
+
+    for (const light of lights) {
+      light.dispose?.();
+    }
+    for (const geo of geometries) {
+      geo.dispose();
+    }
+    for (const mat of materials) {
+      for (const key of Object.keys(mat)) {
+        const value = mat[key];
+        if (value && typeof value === 'object' && value.isTexture) {
+          value.dispose();
+        }
+      }
+      mat.dispose();
     }
   }
 }

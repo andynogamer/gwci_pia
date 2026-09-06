@@ -98,7 +98,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Field | Value |
 | --- | --- |
 | Owner | Agent-Engine (visuals), Agent-Logic (walkable bounds / collision volumes) |
-| Status | SCAFFOLD |
+| Status | DONE |
 
 **Acceptance:** Each map is selectable from the Main Menu, visually distinct, and provides unique obstacle layouts.
 
