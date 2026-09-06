@@ -1,12 +1,13 @@
 /**
  * Agent-UI — screen orchestration under #ui-root only.
- * REQ-UI / WI-014: Settings localStorage + Highscores via ApiClient facade.
+ * REQ-UI / WI-024: GAME_OVER shows winner + score before returning to menu.
  */
 import { Topics } from '../core/Constants.js';
 import { MainMenu } from './screens/MainMenu.js';
 import { Settings } from './screens/Settings.js';
 import { Highscores } from './screens/Highscores.js';
 import { PauseOverlay } from './screens/PauseOverlay.js';
+import { GameOver } from './screens/GameOver.js';
 import { Hud } from './components/Hud.js';
 import './styles/ui.css';
 
@@ -29,11 +30,14 @@ export class UIManager {
     this.activeScreen = 'menu';
     this.playing = false;
     this.paused = false;
+    /** True while the GAME_OVER result panel is up. */
+    this.showingGameOver = false;
 
     const router = {
       navigate: (screen) => this.navigate(screen),
       back: () => this.back(),
       quitToMenu: () => this.quitToMenu(),
+      toMenu: () => this.dismissGameOver(),
     };
 
     this.screens = {
@@ -41,6 +45,7 @@ export class UIManager {
       settings: new Settings(bus, router),
       highscores: new Highscores(bus, router, { getScores: hooks.getScores }),
       pause: new PauseOverlay(bus, router),
+      gameOver: new GameOver(bus, router),
     };
     this.hud = new Hud();
   }
@@ -51,11 +56,13 @@ export class UIManager {
     this.screens.settings.mount(this.root);
     this.screens.highscores.mount(this.root);
     this.screens.pause.mount(this.root);
+    this.screens.gameOver.mount(this.root);
     this.hud.mount(this.root);
 
     this.bus.on(Topics.GAME_START, () => {
       this.playing = true;
       this.paused = false;
+      this.showingGameOver = false;
       this.activeScreen = 'menu';
       this.hud.setArmor(100, 100);
       this.hud.setPowerup('Power-up —');
@@ -66,16 +73,20 @@ export class UIManager {
     this.bus.on(Topics.GAME_PAUSE, (payload) => {
       this.paused = Boolean(payload?.isPaused);
       if (this.paused) {
-        // Closing nested settings when pause engages.
         if (this.activeScreen === 'settings') this.activeScreen = 'menu';
       }
       this._applyVisibility();
     });
 
-    this.bus.on(Topics.GAME_OVER, () => {
+    this.bus.on(Topics.GAME_OVER, (payload) => {
       this.playing = false;
       this.paused = false;
+      this.showingGameOver = true;
       this.activeScreen = 'menu';
+      this.screens.gameOver.show({
+        winner: payload?.winner ?? '',
+        score: Number(payload?.score) || 0,
+      });
       this._applyVisibility();
     });
 
@@ -113,6 +124,7 @@ export class UIManager {
    * @param {string} screen
    */
   navigate(screen) {
+    if (this.showingGameOver) return;
     if (screen !== 'menu' && screen !== 'settings' && screen !== 'highscores') return;
     if (screen === 'highscores' && this.playing) return;
     this.activeScreen = screen;
@@ -121,19 +133,38 @@ export class UIManager {
 
   /** Settings / nested back: menu when idle, pause overlay when in-match. */
   back() {
+    if (this.showingGameOver) return;
     this.activeScreen = 'menu';
     this._applyVisibility();
   }
 
+  /**
+   * Pause → Main Menu ends the match via Logic (GAME_OVER).
+   * Result panel is shown by the GAME_OVER subscriber — do not skip to loadout.
+   */
   quitToMenu() {
     this.hooks.onQuitToMenu?.();
-    this.playing = false;
-    this.paused = false;
+  }
+
+  /** Close the result panel and return to the Deploy / loadout form. */
+  dismissGameOver() {
+    this.showingGameOver = false;
     this.activeScreen = 'menu';
+    this.screens.gameOver.setVisible(false);
     this._applyVisibility();
   }
 
   _applyVisibility() {
+    if (this.showingGameOver) {
+      this.screens.menu.setVisible(false);
+      this.screens.settings.setVisible(false);
+      this.screens.highscores.setVisible(false);
+      if (this.screens.pause.el) this.screens.pause.el.hidden = true;
+      this.screens.gameOver.setVisible(true);
+      if (this.hud.el) this.hud.el.hidden = true;
+      return;
+    }
+
     const inMenus = !this.playing;
     const showSettings = this.activeScreen === 'settings';
     const showHighscores = inMenus && this.activeScreen === 'highscores';
@@ -142,6 +173,7 @@ export class UIManager {
     this.screens.menu.setVisible(showMenu);
     this.screens.settings.setVisible(showSettings);
     this.screens.highscores.setVisible(showHighscores);
+    this.screens.gameOver.setVisible(false);
 
     if (this.screens.pause.el) {
       this.screens.pause.el.hidden = !(this.playing && this.paused && !showSettings);

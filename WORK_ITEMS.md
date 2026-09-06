@@ -64,7 +64,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-021](#wi-021) | playability | Logic + Engine + UI | Spacebar fire; visible shells; HP from bullets only | WI-008 | DONE |
 | [WI-022](#wi-022) | playability | Logic + Engine | EASY AI fires; headlight follows cannon | WI-009 | DONE |
 | [WI-023](#wi-023) | playability | Logic | Recruit opening seconds are not a death sentence | WI-018, WI-022 | DONE |
-| [WI-024](#wi-024) | REQ-UI | UI | Show `GAME_OVER` winner + score | WI-012, WI-018 | TODO |
+| [WI-024](#wi-024) | REQ-UI | UI | Show `GAME_OVER` winner + score | WI-012, WI-018 | DONE |
 | [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | TODO |
 | [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | TODO |
 | [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | TODO |
@@ -607,7 +607,7 @@ Do not nerf HARD into EASY. No DOM. No engine meshes.
 - **Out of scope:** REST POST (WI-026), radar (WI-025)
 - **Acceptance:** After a match ends (death, victory, or Quit), `#ui-root` shows winner and score from the payload. Player can return to Main Menu and Deploy again. WI-018 Chrome currently skips this and dumps straight to the loadout form.
 - **Dispose / pause:** overlay is DOM-only; does not keep the sim running
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
