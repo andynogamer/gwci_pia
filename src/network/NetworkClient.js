@@ -84,16 +84,23 @@ export class NetworkClient {
 
   /**
    * Open WS (if needed) and send JOIN_ROOM.
+   * WI-028 — refuses to join while signed out (no Bearer token).
    * @param {string=} roomId
+   * @returns {boolean} true if join was attempted
    */
   joinRoom(roomId = DEFAULT_ROOM_ID) {
+    if (!this.getToken()) {
+      this.disconnect();
+      return false;
+    }
+
     this.roomId = typeof roomId === 'string' && roomId.trim() ? roomId.trim() : DEFAULT_ROOM_ID;
     this.roomReady = false;
     this._lastStateFrame = null;
 
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this._sendJoin();
-      return;
+      return true;
     }
 
     this.disconnect();
@@ -122,6 +129,7 @@ export class NetworkClient {
     socket.addEventListener('error', () => {
       // close handles cleanup
     });
+    return true;
   }
 
   disconnect() {
