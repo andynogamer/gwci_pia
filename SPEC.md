@@ -37,7 +37,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Trigger | EventBus game-state topics |
 | Implementation path | `/src/ui/screens/` |
 | Owner | Agent-UI |
-| Status | SCAFFOLD |
+| Status | DONE |
 
 **Acceptance:**
 

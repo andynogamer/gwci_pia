@@ -94,7 +94,7 @@ Vectors are world-space `[x, y, z]` numbers.
 ```
 
 **Publishers:** Agent-Logic  
-**Subscribers:** Agent-UI (power-up timer), Agent-Engine (shield shader toggle), Agent-Logic (item lifecycle)
+**Subscribers:** Agent-UI (power-up label / pickup FX cue), Agent-Engine (shield shader toggle), Agent-Logic (item lifecycle)
 
 ### SETTINGS_UPDATED
 
@@ -108,6 +108,29 @@ Vectors are world-space `[x, y, z]` numbers.
 Volumes are floats in `[0, 1]`.  
 **Publishers:** Agent-UI  
 **Subscribers:** Agent-Logic (audio graph)
+
+### HUD_STATE
+
+Plain numbers for the in-game HUD radar and power-up countdown. No Three.js objects or DOM nodes.
+
+```json
+{
+  "local": { "x": 0, "z": 0, "rotY": 0 },
+  "others": [{ "id": "enemy-0", "x": 0, "z": 0 }],
+  "powerup": { "type": "SHIELD", "remaining": 0 } | null
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `local` | `{ x, z, rotY }` | Local tank world XZ + hull yaw (radians) |
+| `others` | `Array<{ id, x, z }>` | AI / remote tanks (not the local player) |
+| `powerup` | `{ type, remaining } \| null` | Active timed buff for local; `remaining` in seconds from Logic `dt` |
+
+`type` is `"SHIELD"` \| `"TRIPLE"` when present. Instant `REPAIR` does not appear here.
+
+**Publishers:** Agent-Logic (each Playing sim tick)  
+**Subscribers:** Agent-UI (radar dots + power-up chip). Ignore while not Playing.
 
 ### CLIENT_STATE_UPDATE
 

@@ -67,6 +67,7 @@ export class UIManager {
       this.hud.setArmor(100, 100);
       this.hud.setPowerup('Power-up —');
       this.hud.setAmmo('Ammo —');
+      this.hud.clearRadar();
       this._applyVisibility();
     });
 
@@ -83,6 +84,7 @@ export class UIManager {
       this.paused = false;
       this.showingGameOver = true;
       this.activeScreen = 'menu';
+      this.hud.clearRadar();
       this.screens.gameOver.show({
         winner: payload?.winner ?? '',
         score: Number(payload?.score) || 0,
@@ -95,16 +97,17 @@ export class UIManager {
       this.hud.setArmor(Number(payload.currentHp), Number(payload.maxHp) || 100);
     });
 
+    this.bus.on(Topics.HUD_STATE, (payload) => {
+      if (!this.playing) return;
+      this.hud.applyHudState(payload);
+    });
+
     this.bus.on(Topics.ITEM_COLLECTED, (payload) => {
+      // Instant repair cue only; timed buffs + countdown come from HUD_STATE.
       if (!payload || payload.entityId !== 'local') return;
-      const labels = {
-        SHIELD: 'Shield',
-        TRIPLE: 'Triple shell',
-        REPAIR: 'Repair kit',
-      };
-      this.hud.setPowerup(labels[payload.type] ?? String(payload.type));
-      if (payload.type === 'TRIPLE') this.hud.setAmmo('Ammo ×3');
-      if (payload.type === 'REPAIR') this.hud.setAmmo('Ammo —');
+      if (payload.type === 'REPAIR') {
+        this.hud.setPowerup('Repair kit');
+      }
     });
 
     window.addEventListener('keydown', (e) => {

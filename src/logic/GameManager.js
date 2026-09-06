@@ -267,6 +267,7 @@ export class GameManager {
     }
 
     if (this.state !== GameState.PLAYING) return;
+    this._publishHudState();
     this._syncVisuals();
   }
 
@@ -406,6 +407,38 @@ export class GameManager {
     this.sceneManager?.syncPickups(this._pickupViews());
     this.cameraManager?.setTarget(pose.x, pose.y, pose.z);
     this.cameraManager?.setFollowYaw(pose.turretRotY);
+  }
+
+  /** WI-025 — JSON-only HUD feed (radar + power-up remaining). */
+  _publishHudState() {
+    const active = this.items.getActive(LOCAL_TANK_ID);
+    /** @type {{ type: string, remaining: number } | null} */
+    let powerup = null;
+    if (active && (active.type === ItemType.SHIELD || active.type === ItemType.TRIPLE)) {
+      powerup = {
+        type: active.type,
+        remaining: Math.max(0, Number(active.remaining) || 0),
+      };
+    }
+
+    this.bus.emit(Topics.HUD_STATE, {
+      local: {
+        x: this.tank.x,
+        z: this.tank.z,
+        rotY: this.tank.rotY,
+      },
+      others: [
+        ...this.enemies.map((e) => ({
+          id: e.id,
+          x: e.tank.x,
+          z: e.tank.z,
+        })),
+        ...(this.opponent
+          ? [{ id: this.opponent.id, x: this.opponent.x, z: this.opponent.z }]
+          : []),
+      ],
+      powerup,
+    });
   }
 
   _scheduleLoop() {

@@ -33,8 +33,8 @@ Imports: `/src/core/*`, Three.js **math/primitives only** as needed (`Clock`, `B
 
 ## Contracts you own as publisher
 
-- `GAME_OVER`, `TANK_DAMAGED`, `ITEM_COLLECTED`, `PLAYER_FIRE` (local simulation)
-- Subscribe: `GAME_START`, `GAME_PAUSE`, `SETTINGS_UPDATED`, remote fire translated by Network onto the bus
+- `GAME_OVER`, `TANK_DAMAGED`, `ITEM_COLLECTED`, `PLAYER_FIRE` (local simulation), `HUD_STATE` (radar + power-up remaining), `CLIENT_STATE_UPDATE` (local PVP pose)
+- Subscribe: `GAME_START`, `GAME_PAUSE`, `SETTINGS_UPDATED`, remote fire / remote `CLIENT_STATE_UPDATE` translated by Network onto the bus
 
 ## Audio note
 

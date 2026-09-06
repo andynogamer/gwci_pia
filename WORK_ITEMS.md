@@ -65,7 +65,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-022](#wi-022) | playability | Logic + Engine | EASY AI fires; headlight follows cannon | WI-009 | DONE |
 | [WI-023](#wi-023) | playability | Logic | Recruit opening seconds are not a death sentence | WI-018, WI-022 | DONE |
 | [WI-024](#wi-024) | REQ-UI | UI | Show `GAME_OVER` winner + score | WI-012, WI-018 | DONE |
-| [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | TODO |
+| [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | DONE |
 | [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | TODO |
 | [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | TODO |
 
@@ -629,7 +629,7 @@ Do not import three. Do not POST scores. Do not edit engine or logic.
 - **Out of scope:** Three.js mini-scene radar; auth; GAME_OVER overlay (WI-024)
 - **Acceptance:** While Playing, radar dots move from bus numbers. Power-up chip counts remaining seconds from Logic `dt`, not a hardcoded UI timer that ignores pause.
 - **Dispose / pause:** paused clock freezes remaining; radar unsubs or ignores ticks while not Playing
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

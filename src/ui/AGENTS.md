@@ -15,7 +15,7 @@ Imports: `/src/core/*` only (plus browser DOM APIs). **No `three`.**
 - Settings: audio sliders, control labels; persist with `localStorage`.
 - Responsive layout entirely under `#ui-root`.
 - Emit `GAME_START`, `GAME_PAUSE`, `SETTINGS_UPDATED` with CONTRACTS.md payloads.
-- Display `GAME_OVER`, `TANK_DAMAGED`, `ITEM_COLLECTED`.
+- Display `GAME_OVER`, `TANK_DAMAGED`, `ITEM_COLLECTED`, `HUD_STATE` (radar + power-up remaining).
 - Highscores view consumes **already-fetched** arrays (ApiClient is Agent-Network). UI may call a Network facade from `main.js` wiring, but must not embed socket or SQL logic.
 
 ## Prohibitions
