@@ -69,8 +69,14 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | DONE |
 | [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | DONE |
 | [WI-028](#wi-028) | REQ-MODES, REQ-SRV-DB | UI + Network | Network Duel requires signed-in session | WI-026, WI-016 | DONE |
+| [WI-029](#wi-029) | REQ-MULTI, REQ-MODES | Network + Logic | PVP opposite spawn pads from `ROOM_READY` | WI-027, WI-016 | TODO |
+| [WI-030](#wi-030) | REQ-MULTI | Network + Logic | `MATCH_END` ends the local duel | WI-027, WI-016 | TODO |
+| [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | TODO |
+| [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | TODO |
+| [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | TODO |
+| [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | TODO |
 
-**Next playable slice:** PVP duel — two signed-in Chrome tabs, same arena (`pvp-map-{1|2|3}`).
+**Next playable slice:** **WI-029** — Network Duel spawn pads (do this before map expand). Two signed-in Chrome tabs must not share a chassis origin.
 
 ---
 
@@ -704,4 +710,163 @@ Relay pose, turret, and fire only. No rendering. No damage math.
 Execute WORK_ITEMS.md WI-028 only.
 Require sign-in before Network Duel. PVE stays available to guests.
 ```
+
+---
+
+### WI-029
+
+- **REQ:** REQ-MULTI, REQ-MODES (playability — both duelists spawn on the same pad)
+- **Agent:** Network + Logic (owners stay in their folders; Core/CONTRACTS in the same change)
+- **Scope:** `CONTRACTS.md`, `src/core/Constants.js`, `src/network/NetworkClient.js`, `src/logic/GameManager.js`, `src/logic/gamemodes/NetworkDuel.js`, `src/logic/physics/mapVolumes.js`
+- **Depends on:** WI-027, WI-016
+- **Contracts:** **new EventBus topic required.** Mirror WS `ROOM_READY` (omit `event`):
+
+```json
+{ "roomId": "string", "players": ["player-uuid-a", "player-uuid-b"] }
+```
+
+  Slot = index in `players` (join order, same array on both peers). Index `0` → spawn pad A, index `1` → pad B. No new WS fields. No Three.js / DOM on the bus.
+- **Out of scope:** server AABB / damage; map size (WI-031); `MATCH_END` (WI-030); item sync (WI-034)
+- **Acceptance:** Two signed-in Chrome tabs, same `pvp-map-{1|2|3}`:
+  - Each local tank is placed on a **different** pad after `ROOM_READY` (pads ≥ 18 world units apart on every map).
+  - Hull yaw faces the opponent pad (W drives toward the duel, not into a wall).
+  - Until `ROOM_READY`, chassis input is ignored (waiting peer must not wander onto the shared `[0, 6]` origin).
+  - Placeholder opponent sits on the **other** pad, not a PVE AI spot. First `CLIENT_STATE_UPDATE` from the peer replaces that pose.
+  - PVE spawn is unchanged (`volumes.spawn`).
+- **Dispose / pause:** teleport on `ROOM_READY` only while Playing/Paused; socket still closes on `GAME_OVER`
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-029 only.
+PVP tanks currently both reset to volumes.spawn so they occupy the same origin.
+Add EventBus ROOM_READY (CONTRACTS.md + Constants.js). NetworkClient emits the WS
+payload. Logic assigns pad A/B from players[] index of getLocalPlayerId().
+Hold chassis until ROOM_READY, then snap + face the opponent pad.
+Do not expand maps. Do not handle MATCH_END. No server physics.
+```
+
+---
+
+### WI-030
+
+- **REQ:** REQ-MULTI (playability — opponent leave / heartbeat drop does not end the match)
+- **Agent:** Network + Logic
+- **Scope:** `CONTRACTS.md`, `src/core/Constants.js`, `src/network/NetworkClient.js`, `src/logic/GameManager.js`
+- **Depends on:** WI-027, WI-016
+- **Contracts:** **new EventBus topic required.** Mirror WS `MATCH_END` (omit `event`):
+
+```json
+{ "reason": "opponent_left" | "heartbeat_timeout" | "room_full" }
+```
+
+  Logic publishes existing `GAME_OVER` `{ winner, score }` after that. Network still must not invent damage.
+- **Out of scope:** spawn pads (WI-029); REST scores already POST on `GAME_OVER`
+- **Acceptance:** In a live 1v1, closing one tab (or letting heartbeat timeout) makes the remaining tab leave Playing and show game-over. `reason: room_full` does not start a duel. PVE never listens to this topic.
+- **Dispose / pause:** socket close + match teardown; no leaked RAF
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-030 only.
+MATCH_END currently only disconnects the socket; Logic keeps Playing vs a ghost.
+Emit MATCH_END on EventBus; Logic endMatch for PVP. No new WS fields. No AABB on server.
+```
+
+---
+
+### WI-031
+
+- **REQ:** REQ-MAPS (playability — arenas feel cramped; ground ~48, AABB `HALF = 22`)
+- **Agent:** Engine + Logic (owners stay in their folders)
+- **Scope:** `src/engine/maps/*`, `src/logic/physics/mapVolumes.js` (obstacles, bounds, PVE spawn, enemy pads, item spots). Do **not** retune PVP pads except to keep them legal on the new bounds (WI-029 pads must remain ≥ 18 apart and inside AABB).
+- **Depends on:** WI-005, WI-008
+- **Contracts:** none new (`mapId` 1|2|3 unchanged)
+- **Out of scope:** radar scale (WI-033); AI FOV numbers; Network
+- **Acceptance:**
+  - Walkable AABB half-extent is **at least 34** (today 22) on all three maps; visual ground covers that square (no driving off a short plane into empty fog).
+  - Each map adds extra theme-matched cover in the new ring so the extra space is not an empty parking lot. Layouts stay distinct (Desert ruins, Industrial corridors, Lunar modules/craters).
+  - Fog / lunar shadow camera / industrial fence posts follow the new perimeter.
+  - Unload still `.dispose()`s new geometries/materials. PVE wave-1 pads stay far from player spawn (WI-023 grace still holds on Recruit Desert).
+- **Dispose / pause:** full map teardown on unload
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-031 only.
+Expand Desert, Industrial, and Lunar: Engine ground/fog/cover + Logic AABB HALF ≥ 34
+and relocated obstacles/items/enemy pads. Keep themes distinct. Dispose on unload.
+Do not change radar (WI-033). Do not open sockets. No Cannon/Ammo/Rapier.
+```
+
+---
+
+### WI-032
+
+- **REQ:** REQ-SND-ITM, REQ-MODES (playability — pickups are one-shot for the whole horde)
+- **Agent:** Logic
+- **Scope:** `src/logic/items/ItemSystem.js`, `src/logic/gamemodes/HordeSurvival.js`, `src/logic/GameManager.js`
+- **Depends on:** WI-011, WI-012
+- **Contracts:** existing `ITEM_COLLECTED` only (re-emit when picked again). No new topics.
+- **Out of scope:** HUD CSS; Engine meshes (SceneManager already syncs `livePickups()`); PVP item authority (WI-034)
+- **Acceptance:** In PVE, Shield, Triple Shell, and Repair Kit are **live again at the start of every wave** (including after wave 1). Collecting during intermission does not permanently empty the map. Active buff timers on the player are not reset by a wave respawn. Paused clock still freezes item `dt`. PVP match still spawns once at `GAME_START` (no waves).
+- **Dispose / pause:** `items.clear()` on `GAME_OVER` unchanged
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-032 only.
+You are Agent-Logic. PVE pickups set live=false forever after the first collect.
+Respawn Shield, Triple, and Repair at each HordeSurvival wave start.
+Do not reset the player's active power-up. No DOM. No engine materials. No sockets.
+```
+
+---
+
+### WI-033
+
+- **REQ:** REQ-UI (radar half-extent is hardcoded to 22)
+- **Agent:** UI
+- **Scope:** `src/ui/components/Hud.js`
+- **Depends on:** WI-025, WI-031
+- **Contracts:** existing `HUD_STATE` numbers only
+- **Out of scope:** Three.js mini-scene; reading Object3D; changing Logic volumes
+- **Acceptance:** After WI-031, tanks near the new perimeter still appear on the radar disk (not clipped at the old ±22). Local wedge stays centered. No `three` import.
+- **Dispose / pause:** radar still ignores ticks while not Playing
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-033 only.
+You are Agent-UI. Raise radar world radius to the expanded arena (WI-031 HALF).
+HUD_STATE numbers only. Do not import three. Do not edit engine or logic.
+```
+
+---
+
+### WI-034
+
+- **REQ:** REQ-MULTI (playability — pickups are simulated independently on each PVP client)
+- **Agent:** Logic + Network
+- **Scope:** TBD after WI-029 (either document “cosmetic local loot” or add a contracted pickup relay)
+- **Depends on:** WI-029
+- **Contracts:** none yet — **do not invent** `ITEM_COLLECTED` WS fields in this item until CONTRACTS.md is updated in the same change
+- **Out of scope:** server-side item authority / AABB
+- **Acceptance:** Product decision recorded in the WI: either (a) PVP arenas spawn no pickups, or (b) collecting on one client hides the pickup on the other via a contracted bus/WS event. Chrome 1v1 must not show a Repair Kit the opponent already took.
+- **Dispose / pause:** n/a until implementation
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-034 only.
+PVP pickups are per-client today. Pick (a) disable PVP loot or (b) contract a relay.
+Update CONTRACTS.md if you add fields. No server physics. No rendering.
+```
+
 
