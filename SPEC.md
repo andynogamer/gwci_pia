@@ -114,7 +114,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Field | Value |
 | --- | --- |
 | Owner | Agent-Logic (rules), Agent-Network (PVP transport) |
-| Status | SCAFFOLD |
+| Status | PARTIAL |
 
 **Acceptance:** Mode is chosen before `GAME_START`. PVE never requires a socket. PVP does not simulate opponent AI locally as the authority.
 

@@ -1,5 +1,5 @@
 /**
- * Agent-Logic — match loop, AABB, AI, audio, items (WI-006–011).
+ * Agent-Logic — match loop, AABB, AI, audio, items, PVE waves (WI-006–012).
  * Boot → Menu → Playing → Paused → GameOver.
  */
 import { Clock } from 'three';
@@ -9,6 +9,7 @@ import { CollisionManager, LOCAL_TANK_ID } from './physics/CollisionManager.js';
 import { EnemyAI } from './ai/EnemyAI.js';
 import { AudioSystem } from './audio/AudioSystem.js';
 import { ItemSystem, REPAIR_AMOUNT } from './items/ItemSystem.js';
+import { HordeSurvival } from './gamemodes/HordeSurvival.js';
 
 const VALID_MODES = new Set(Object.values(GameMode));
 const VALID_DIFFICULTIES = new Set(Object.values(Difficulty));
@@ -50,6 +51,8 @@ export class GameManager {
     this.hp = MAX_HP;
     /** @type {Array<{ id: string, tank: TankController, ai: EnemyAI, hp: number, maxHp: number }>} */
     this.enemies = [];
+    /** @type {HordeSurvival | null} */
+    this.horde = null;
     this._playerPrevX = 0;
     this._playerPrevZ = 0;
 
@@ -94,6 +97,7 @@ export class GameManager {
     this.playingTicks = 0;
     this.hp = this.maxHp;
     this._clearEnemies();
+    this._teardownHorde();
     this.items.clear();
     const volumes = this.collision.loadMap(payload.mapId);
     const spawn = volumes.spawn ?? [0, 6];
@@ -102,10 +106,10 @@ export class GameManager {
     this._playerPrevZ = this.tank.z;
     this.sceneManager?.clearProjectiles();
     this.sceneManager?.spawnLocalTank();
-    if (payload.mode === GameMode.PVE) {
-      this._spawnEnemies(volumes, payload.difficulty);
-    }
     this._refreshBodies();
+    if (payload.mode === GameMode.PVE) {
+      this._startHorde(volumes, payload.difficulty);
+    }
     this.items.spawn(volumes.items ?? []);
     this.sceneManager?.syncPickups(this._pickupViews());
     this._syncVisuals();
@@ -154,6 +158,7 @@ export class GameManager {
     this.audio.stopBgm();
     this.audio.setPaused(false);
     this._clearEnemies();
+    this._teardownHorde();
     this.items.clear();
     this.collision.clear();
     this.sceneManager?.clearPickups();
@@ -226,6 +231,7 @@ export class GameManager {
     this.collision.updateProjectiles(dt, tanks, (entityId) => this._damage(entityId, SHOT_DAMAGE));
 
     this.items.update(dt);
+    this.horde?.update(dt);
 
     if (this.state !== GameState.PLAYING) return;
     this._syncVisuals();
@@ -247,7 +253,8 @@ export class GameManager {
       });
       if (this.hp <= 0) {
         this.audio.playSfx('explosion');
-        this.endMatch({ winner: 'arena', score: 0 });
+        const defeat = this.horde?.defeatResult() ?? { winner: 'arena', score: 0 };
+        this.endMatch(defeat);
       }
       return;
     }
@@ -264,6 +271,7 @@ export class GameManager {
       this.audio.playSfx('explosion');
       this.sceneManager?.despawnEnemyTank(enemy.id);
       this.enemies = this.enemies.filter((e) => e.id !== entityId);
+      this.horde?.onEnemyKilled();
     }
   }
 
@@ -293,6 +301,7 @@ export class GameManager {
         x: e.tank.x,
         z: e.tank.z,
       })),
+      horde: this.horde?.getDebug() ?? null,
     };
   }
 
@@ -303,6 +312,7 @@ export class GameManager {
     }
     this.clock.stop();
     this._clearEnemies();
+    this._teardownHorde();
     this.items.clear();
     this.collision.clear();
     this.sceneManager?.clearPickups();
@@ -379,34 +389,73 @@ export class GameManager {
   }
 
   /**
-   * @param {{ enemies?: Array<[number, number, number?]> }} volumes
+   * @param {{ enemies?: Array<[number, number, number?]>, spawn?: [number, number] }} volumes
    * @param {string} difficulty
    */
-  _spawnEnemies(volumes, difficulty) {
+  _startHorde(volumes, difficulty) {
     const config = DifficultyConfig[difficulty] ?? DifficultyConfig.EASY;
-    const fireCooldown = 1 / Math.max(0.05, config.fireRate);
-    const spots = volumes.enemies ?? [];
-    this._refreshBodies();
+    const spots = (volumes.enemies ?? []).map(([x, z]) => /** @type {[number, number]} */ ([x, z]));
     const [px, pz] = volumes.spawn ?? [0, 6];
-    let n = 0;
-    for (const [x, z] of spots) {
-      const id = `enemy-${n}`;
-      const at = this.collision.resolveTankMove(x, z, x, z, id);
-      if (at.blocked) continue;
-      const rotY = Math.atan2(px - x, pz - z);
-      const tank = new TankController({ moveSpeed: 6.1, fireCooldown });
-      tank.reset(x, z, rotY);
-      const ai = new EnemyAI(config, { x, z });
-      this.enemies.push({ id, tank, ai, hp: this.maxHp, maxHp: this.maxHp });
-      this.sceneManager?.spawnEnemyTank(id);
-      this._refreshBodies();
-      n += 1;
+
+    this.horde = new HordeSurvival({
+      spawnPoints: spots,
+      aliveCount: () => this.enemies.length,
+      onVictory: (result) => this.endMatch(result),
+      spawnEnemy: (spot, index) => {
+        this._spawnEnemyAt(spot.x, spot.z, index, config, px, pz);
+      },
+    });
+    this.horde.start();
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} z
+   * @param {number} index
+   * @param {{ fovDegrees: number, reactionLatency: number, fireRate: number, predictTrajectory: boolean }} config
+   * @param {number} px player spawn x
+   * @param {number} pz player spawn z
+   */
+  _spawnEnemyAt(x, z, index, config, px, pz) {
+    const id = `enemy-${index}`;
+    const fireCooldown = 1 / Math.max(0.05, config.fireRate);
+    this._refreshBodies();
+    let at = this.collision.resolveTankMove(x, z, x, z, id);
+    if (at.blocked) {
+      const offsets = [
+        [3, 0],
+        [-3, 0],
+        [0, 3],
+        [0, -3],
+        [4, 4],
+        [-4, -4],
+      ];
+      for (const [ox, oz] of offsets) {
+        at = this.collision.resolveTankMove(x + ox, z + oz, x + ox, z + oz, id);
+        if (!at.blocked) break;
+      }
     }
+    if (at.blocked) return;
+
+    const sx = at.x;
+    const sz = at.z;
+    const rotY = Math.atan2(px - sx, pz - sz);
+    const tank = new TankController({ moveSpeed: 6.1, fireCooldown });
+    tank.reset(sx, sz, rotY);
+    const ai = new EnemyAI(config, { x: sx, z: sz });
+    this.enemies.push({ id, tank, ai, hp: this.maxHp, maxHp: this.maxHp });
+    this.sceneManager?.spawnEnemyTank(id);
+    this._refreshBodies();
   }
 
   _clearEnemies() {
     this.sceneManager?.despawnEnemyTanks();
     this.enemies.length = 0;
+  }
+
+  _teardownHorde() {
+    this.horde?.reset();
+    this.horde = null;
   }
 
   /**
