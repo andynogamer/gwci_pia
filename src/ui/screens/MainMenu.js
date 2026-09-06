@@ -41,6 +41,8 @@ export class MainMenu {
     this.guestActionsEl = null;
     /** @type {HTMLElement | null} */
     this.userActionsEl = null;
+    /** @type {HTMLElement | null} */
+    this.deployStatusEl = null;
     this.username = null;
     this.selection = {
       mode: GameMode.PVE,
@@ -83,7 +85,7 @@ export class MainMenu {
           </label>
           <label class="ui-choice">
             <input type="radio" name="mode" value="${GameMode.PVP}" />
-            <span>Network Duel (PVP)</span>
+            <span>Network Duel (PVP) — sign-in required</span>
           </label>
         </fieldset>
 
@@ -108,6 +110,8 @@ export class MainMenu {
           </label>
         </fieldset>
 
+        <p class="ui-status ui-status--error" data-deploy-status hidden></p>
+
         <div class="ui-actions">
           <button type="submit" class="ui-btn ui-btn--primary" data-action="start">Deploy</button>
           <button type="button" class="ui-btn" data-action="settings">Settings</button>
@@ -119,6 +123,7 @@ export class MainMenu {
     this.sessionEl = wrap.querySelector('[data-auth-session]');
     this.guestActionsEl = wrap.querySelector('[data-auth-guest]');
     this.userActionsEl = wrap.querySelector('[data-auth-user]');
+    this.deployStatusEl = wrap.querySelector('[data-deploy-status]');
 
     wrap.querySelector('[data-action="login"]').addEventListener('click', () => {
       this.router.navigate('login');
@@ -133,6 +138,7 @@ export class MainMenu {
     const form = wrap.querySelector('[data-form="start"]');
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      this._clearDeployStatus();
       const data = new FormData(form);
       const mode = String(data.get('mode'));
       const mapId = Number(data.get('mapId'));
@@ -143,6 +149,16 @@ export class MainMenu {
         return;
       }
       if (difficulty !== Difficulty.EASY && difficulty !== Difficulty.HARD) return;
+
+      // WI-028 — Network Duel requires a signed-in Bearer session.
+      if (mode === GameMode.PVP) {
+        const session = loadPersistedAuth();
+        if (!session.token) {
+          this._setDeployStatus('Sign in to deploy a Network Duel.');
+          this.router.navigate('login');
+          return;
+        }
+      }
 
       this.selection = { mode, mapId, difficulty };
       this.bus.emit(Topics.GAME_START, {
@@ -175,6 +191,7 @@ export class MainMenu {
     const session = loadPersistedAuth();
     this.username = session.username;
     this._renderSession();
+    if (session.token) this._clearDeployStatus();
   }
 
   _restoreSession() {
@@ -192,6 +209,21 @@ export class MainMenu {
     this.username = null;
     this.auth.onSession?.({ token: null, username: null });
     this._renderSession();
+  }
+
+  /**
+   * @param {string} message
+   */
+  _setDeployStatus(message) {
+    if (!this.deployStatusEl) return;
+    this.deployStatusEl.hidden = false;
+    this.deployStatusEl.textContent = message;
+  }
+
+  _clearDeployStatus() {
+    if (!this.deployStatusEl) return;
+    this.deployStatusEl.hidden = true;
+    this.deployStatusEl.textContent = '';
   }
 
   _renderSession() {

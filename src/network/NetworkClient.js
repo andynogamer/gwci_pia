@@ -153,6 +153,11 @@ export class NetworkClient {
       this.disconnect();
       return;
     }
+    // WI-028 — PVP transport requires a signed-in Bearer session.
+    if (!this.getToken()) {
+      this.disconnect();
+      return;
+    }
     const mapId = Number(payload.mapId);
     const roomId = Number.isFinite(mapId) ? `pvp-map-${mapId}` : DEFAULT_ROOM_ID;
     this.joinRoom(roomId);

@@ -68,8 +68,9 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | DONE |
 | [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | DONE |
 | [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | TODO |
+| [WI-028](#wi-028) | REQ-MODES, REQ-SRV-DB | UI + Network | Network Duel requires signed-in session | WI-026, WI-016 | DONE |
 
-**Next playable slice:** WI-027 (two Chrome clients in one PVP room).
+**Next playable slice:** WI-027 (two Chrome clients in one PVP room; both must be signed in — WI-028).
 
 ---
 
@@ -681,5 +682,26 @@ Do not invent REST fields. Do not open sockets for this item. Parameterized SQL 
 Execute WORK_ITEMS.md WI-027 only.
 You are Agent-Network. Prove two Chrome clients in one 1v1 room.
 Relay pose, turret, and fire only. No rendering. No damage math.
+```
+
+---
+
+### WI-028
+
+- **REQ:** REQ-MODES + REQ-SRV-DB (PVP participants must be authenticated)
+- **Agent:** UI + Network
+- **Scope:** `src/ui/screens/MainMenu.js`, `src/network/NetworkClient.js` (optional SPEC note)
+- **Depends on:** WI-026, WI-016
+- **Contracts:** none new (reuse persisted Bearer session from WI-026)
+- **Out of scope:** JWT on WebSocket JOIN_ROOM; server AABB
+- **Acceptance:** Guest cannot Deploy Network Duel — menu blocks `GAME_START` and prompts Sign In. NetworkClient refuses PVP `joinRoom` without a token. Horde Survival (PVE) still works signed out.
+- **Dispose / pause:** n/a
+- **Status:** DONE
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-028 only.
+Require sign-in before Network Duel. PVE stays available to guests.
 ```
 

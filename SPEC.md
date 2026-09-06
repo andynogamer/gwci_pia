@@ -116,7 +116,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Owner | Agent-Logic (rules), Agent-Network (PVP transport) |
 | Status | DONE |
 
-**Acceptance:** Mode is chosen before `GAME_START`. PVE never requires a socket. PVP does not simulate opponent AI locally as the authority.
+**Acceptance:** Mode is chosen before `GAME_START`. PVE never requires a socket. PVP does not simulate opponent AI locally as the authority. Network Duel Deploy requires a signed-in session (Bearer token from login/register).
 
 ---
 

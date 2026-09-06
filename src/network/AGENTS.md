@@ -29,6 +29,8 @@ Imports: `/src/core/*`, `fetch`, `WebSocket`. **No `three`. No DOM writes.**
 You **relay** pose, turret, hp display, and fire vectors.  
 Agent-Logic still simulates the local tank. You do not “own physics” on the client beyond applying received opponent pose to a networked entity slot that Logic/Engine expose via facades or bus.
 
+Network Duel (`GAME_START.mode === "PVP"`) requires a Bearer token (WI-028). Do not `joinRoom` while signed out; UI must also block Deploy for guests.
+
 ## Auth
 
 Store the bearer token where UI/session agrees (prefer handing token to UI `localStorage` via a bus topic only if that topic is contracted). Until then, keep token inside NetworkClient and expose `getToken()` for score POST after `GAME_OVER`.
