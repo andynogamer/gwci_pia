@@ -6,12 +6,13 @@ import { Box3, Vector3 } from 'three';
 import { getMapVolumes } from './mapVolumes.js';
 
 export const LOCAL_TANK_ID = 'local';
+export const PROJECTILE_SPEED = 32;
 
 const TANK_HX = 1.2;
 const TANK_HY = 0.7;
 const TANK_HZ = 1.65;
 const PROJ_H = 0.22;
-const PROJ_SPEED = 32;
+const PROJ_SPEED = PROJECTILE_SPEED;
 const PROJ_LIFE = 2.2;
 
 export class CollisionManager {
@@ -22,10 +23,13 @@ export class CollisionManager {
     /** @type {Array<{ id: number, ownerId: string, x: number, y: number, z: number, dx: number, dy: number, dz: number, age: number }>} */
     this.projectiles = [];
     this._tankBox = new Box3();
+    this._otherBox = new Box3();
     this._projBox = new Box3();
     this._min = new Vector3();
     this._max = new Vector3();
     this._nextShot = 1;
+    /** @type {Array<{ id: string, x: number, z: number }>} */
+    this.bodies = [];
   }
 
   /**
@@ -52,6 +56,7 @@ export class CollisionManager {
   clear() {
     this.obstacles.length = 0;
     this.projectiles.length = 0;
+    this.bodies.length = 0;
     this.bounds.makeEmpty();
   }
 
@@ -69,9 +74,10 @@ export class CollisionManager {
   /**
    * Slide along walls: try X, then Z, then full revert.
    * Long steps are subdivided so thin ruins are not tunneled.
+   * @param {string} [ignoreId] tank to exclude from body-body tests
    * @returns {{ x: number, z: number, blocked: boolean, hitObstacle: boolean }}
    */
-  resolveTankMove(prevX, prevZ, x, z) {
+  resolveTankMove(prevX, prevZ, x, z, ignoreId) {
     const dist = Math.hypot(x - prevX, z - prevZ);
     const steps = Math.max(1, Math.ceil(dist / 0.4));
     let cx = prevX;
@@ -81,7 +87,7 @@ export class CollisionManager {
     for (let i = 1; i <= steps; i++) {
       const nx = prevX + ((x - prevX) * i) / steps;
       const nz = prevZ + ((z - prevZ) * i) / steps;
-      const step = this._resolveStep(cx, cz, nx, nz);
+      const step = this._resolveStep(cx, cz, nx, nz, ignoreId);
       cx = step.x;
       cz = step.z;
       blocked = blocked || step.blocked;
@@ -93,14 +99,14 @@ export class CollisionManager {
   /**
    * @returns {{ x: number, z: number, blocked: boolean, hitObstacle: boolean }}
    */
-  _resolveStep(prevX, prevZ, x, z) {
+  _resolveStep(prevX, prevZ, x, z, ignoreId) {
     this.tankBoxAt(x, z, this._tankBox);
     const hitObstacle = this._overlapsObstacles(this._tankBox);
-    if (this._tankLegal(x, z)) {
+    if (this._tankLegal(x, z, ignoreId)) {
       return { x, z, blocked: false, hitObstacle: false };
     }
-    const xOk = this._tankLegal(x, prevZ);
-    const zOk = this._tankLegal(prevX, z);
+    const xOk = this._tankLegal(x, prevZ, ignoreId);
+    const zOk = this._tankLegal(prevX, z, ignoreId);
     if (xOk && zOk) {
       return { x, z: prevZ, blocked: true, hitObstacle };
     }
@@ -130,10 +136,10 @@ export class CollisionManager {
 
   /**
    * @param {number} dt
-   * @param {{ id: string, x: number, z: number }} tank
+   * @param {Array<{ id: string, x: number, z: number }>} tanks
    * @param {(entityId: string) => void} onTankHit
    */
-  updateProjectiles(dt, tank, onTankHit) {
+  updateProjectiles(dt, tanks, onTankHit) {
     const survivors = [];
     for (const p of this.projectiles) {
       const dist = Math.hypot(p.dx, p.dy, p.dz) * dt;
@@ -158,8 +164,8 @@ export class CollisionManager {
           break;
         }
 
-        const hitOwn = p.ownerId === tank.id;
-        if (!hitOwn) {
+        for (const tank of tanks) {
+          if (p.ownerId === tank.id) continue;
           this.tankBoxAt(tank.x, tank.z, this._tankBox);
           if (this._projBox.intersectsBox(this._tankBox)) {
             onTankHit(tank.id);
@@ -173,15 +179,25 @@ export class CollisionManager {
     this.projectiles = survivors;
   }
 
-  _tankLegal(x, z) {
+  _tankLegal(x, z, ignoreId) {
     this.tankBoxAt(x, z, this._tankBox);
     if (!this.bounds.containsBox(this._tankBox)) return false;
-    return !this._overlapsObstacles(this._tankBox);
+    if (this._overlapsObstacles(this._tankBox)) return false;
+    return !this._overlapsTanks(this._tankBox, ignoreId);
   }
 
   _overlapsObstacles(box) {
     for (const o of this.obstacles) {
       if (box.intersectsBox(o)) return true;
+    }
+    return false;
+  }
+
+  _overlapsTanks(box, ignoreId) {
+    for (const b of this.bodies) {
+      if (b.id === ignoreId) continue;
+      this.tankBoxAt(b.x, b.z, this._otherBox);
+      if (box.intersectsBox(this._otherBox)) return true;
     }
     return false;
   }

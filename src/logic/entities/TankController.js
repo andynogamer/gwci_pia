@@ -19,7 +19,12 @@ function wrapAngle(a) {
 }
 
 export class TankController {
-  constructor() {
+  /**
+   * @param {{ moveSpeed?: number, fireCooldown?: number }} [opts]
+   */
+  constructor(opts = {}) {
+    this.moveSpeed = opts.moveSpeed ?? MOVE_SPEED;
+    this.fireCooldownMax = opts.fireCooldown ?? FIRE_COOLDOWN;
     this.x = 0;
     this.y = 0;
     this.z = 6;
@@ -72,8 +77,8 @@ export class TankController {
 
     this.rotY = wrapAngle(this.rotY + this.steer * TURN_RATE * dt);
     this._forward.set(Math.sin(this.rotY), 0, Math.cos(this.rotY));
-    this.x += this._forward.x * this.throttle * MOVE_SPEED * dt;
-    this.z += this._forward.z * this.throttle * MOVE_SPEED * dt;
+    this.x += this._forward.x * this.throttle * this.moveSpeed * dt;
+    this.z += this._forward.z * this.throttle * this.moveSpeed * dt;
 
     this.turretRotY = wrapAngle(this.turretRotY + this.turretSteer * TURRET_RATE * dt);
 
@@ -83,9 +88,10 @@ export class TankController {
   }
 
   /**
-   * @returns {{ origin: [number, number, number], direction: [number, number, number], isLocal: true } | null}
+   * @param {boolean} [isLocal]
+   * @returns {{ origin: [number, number, number], direction: [number, number, number], isLocal: boolean } | null}
    */
-  tryFire() {
+  tryFire(isLocal = true) {
     if (this.fireCooldown > 0) return null;
 
     this._turretFwd.set(Math.sin(this.turretRotY), 0, Math.cos(this.turretRotY));
@@ -96,9 +102,9 @@ export class TankController {
     ];
     const direction = [this._turretFwd.x, 0, this._turretFwd.z];
 
-    this.fireCooldown = FIRE_COOLDOWN;
+    this.fireCooldown = this.fireCooldownMax;
     this.fireCount += 1;
-    return { origin, direction, isLocal: true };
+    return { origin, direction, isLocal: Boolean(isLocal) };
   }
 
   getPose() {

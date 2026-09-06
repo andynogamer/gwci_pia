@@ -83,9 +83,33 @@ function lunarObstacles() {
 }
 
 const BY_MAP = {
-  1: { spawn: [0, 6], bounds: arenaBounds(), obstacles: desertObstacles() },
-  2: { spawn: [0, 6], bounds: arenaBounds(), obstacles: industrialObstacles() },
-  3: { spawn: [0, 16], bounds: arenaBounds(), obstacles: lunarObstacles() },
+  1: {
+    spawn: [0, 6],
+    enemies: [
+      [12, -14, 0],
+      [-12, -14, 0],
+    ],
+    bounds: arenaBounds(),
+    obstacles: desertObstacles(),
+  },
+  2: {
+    spawn: [0, 6],
+    enemies: [
+      [16, -14, 0],
+      [-16, 0, Math.PI / 2],
+    ],
+    bounds: arenaBounds(),
+    obstacles: industrialObstacles(),
+  },
+  3: {
+    spawn: [0, 16],
+    enemies: [
+      [16, 8, 0],
+      [-16, 8, 0],
+    ],
+    bounds: arenaBounds(),
+    obstacles: lunarObstacles(),
+  },
 };
 
 /**

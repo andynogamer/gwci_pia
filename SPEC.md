@@ -74,7 +74,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Requirement | Non-time-based variance between difficulties |
 | Implementation path | `/src/logic/ai/` |
 | Owner | Agent-Logic |
-| Status | SCAFFOLD |
+| Status | DONE |
 
 | Parameter | EASY (Recruit) | HARD (Veteran) |
 | --- | --- | --- |
@@ -177,7 +177,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Field | Value |
 | --- | --- |
 | Owners | Agent-Engine (particles), Agent-Logic (AI) |
-| Status | SCAFFOLD |
+| Status | PARTIAL |
 
 **Acceptance:** Particles are delta-time scaled and disposed. AI does not engage targets outside the cone or occluded by obstacles.
 

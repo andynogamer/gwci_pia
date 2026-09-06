@@ -53,19 +53,19 @@ export class DualLights {
   }
 
   /**
-   * Parent headlights to a local tank mesh/group (engine facade for WI-007).
-   * @param {THREE.Object3D} tank
+   * Parent headlights to the local tank turret so the beam follows the cannon.
+   * @param {THREE.Object3D} turret
    */
-  attachToTank(tank) {
+  attachToTank(turret) {
     if (this.headlightMount.parent) {
       this.headlightMount.parent.remove(this.headlightMount);
     }
-    this._tank = tank;
-    this.headlightMount.position.set(0.92, 0.42, 1.62);
+    this._tank = turret;
+    this.headlightMount.position.set(0, 0.34, 0.42);
     this.headlightMount.rotation.set(0, 0, 0);
     this.spot.position.set(0, 0, 0);
-    this.spot.target.position.set(0.15, -0.25, 18);
-    tank.add(this.headlightMount);
+    this.spot.target.position.set(0, -0.28, 18);
+    turret.add(this.headlightMount);
   }
 
   /** Return headlights to free scene mount (e.g. tank disposed). */

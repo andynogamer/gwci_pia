@@ -26,6 +26,9 @@ export class SceneManager {
     /** @type {LocalTankView | null} */
     this._localTank = null;
 
+    /** @type {Map<string, LocalTankView>} */
+    this._enemies = new Map();
+
     /** @type {Map<number, THREE.Mesh>} */
     this._shells = new Map();
     /** @type {THREE.SphereGeometry | null} */
@@ -130,7 +133,7 @@ export class SceneManager {
     const view = new LocalTankView();
     this.scene.add(view.root);
     this._localTank = view;
-    this.lights?.attachToTank(view.root);
+    this.lights?.attachToTank(view.turretPivot);
   }
 
   /**
@@ -145,6 +148,45 @@ export class SceneManager {
     this.lights?.detachFromTank();
     this._localTank.dispose();
     this._localTank = null;
+  }
+
+  /**
+   * @param {string} id
+   */
+  spawnEnemyTank(id) {
+    this.despawnEnemyTank(id);
+    const view = new LocalTankView({
+      name: `enemy-${id}`,
+      hull: 0x8a2e2e,
+      turret: 0xb44545,
+      skirt: 0x3a2222,
+    });
+    this.scene.add(view.root);
+    this._enemies.set(id, view);
+  }
+
+  /**
+   * @param {string} id
+   * @param {{ x: number, y: number, z: number, rotY: number, turretRotY: number }} pose
+   */
+  syncEnemyTank(id, pose) {
+    this._enemies.get(id)?.setPose(pose);
+  }
+
+  /**
+   * @param {string} id
+   */
+  despawnEnemyTank(id) {
+    const view = this._enemies.get(id);
+    if (!view) return;
+    view.dispose();
+    this._enemies.delete(id);
+  }
+
+  despawnEnemyTanks() {
+    for (const id of [...this._enemies.keys()]) {
+      this.despawnEnemyTank(id);
+    }
   }
 
   /**
@@ -226,6 +268,7 @@ export class SceneManager {
    */
   dispose() {
     this.despawnLocalTank();
+    this.despawnEnemyTanks();
     this._disposeShellAssets();
     this.unloadMap();
 

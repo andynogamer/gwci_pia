@@ -1,11 +1,12 @@
 /**
- * Agent-Logic — WI-006 state machine + WI-007 tank + WI-008 AABB collisions.
+ * Agent-Logic — state machine, local tank, AABB, enemy AI (WI-006–009).
  * Boot → Menu → Playing → Paused → GameOver.
  */
 import { Clock } from 'three';
-import { Difficulty, GameMode, GameState, MapId, Topics } from '../core/Constants.js';
+import { Difficulty, DifficultyConfig, GameMode, GameState, MapId, Topics } from '../core/Constants.js';
 import { TankController } from './entities/TankController.js';
 import { CollisionManager, LOCAL_TANK_ID } from './physics/CollisionManager.js';
+import { EnemyAI } from './ai/EnemyAI.js';
 
 const VALID_MODES = new Set(Object.values(GameMode));
 const VALID_DIFFICULTIES = new Set(Object.values(Difficulty));
@@ -34,6 +35,10 @@ export class GameManager {
     this.collision = new CollisionManager();
     this.maxHp = MAX_HP;
     this.hp = MAX_HP;
+    /** @type {Array<{ id: string, tank: TankController, ai: EnemyAI, hp: number, maxHp: number }>} */
+    this.enemies = [];
+    this._playerPrevX = 0;
+    this._playerPrevZ = 0;
 
     /** @type {number | null} */
     this._raf = null;
@@ -72,11 +77,18 @@ export class GameManager {
     this.lastDt = 0;
     this.playingTicks = 0;
     this.hp = this.maxHp;
+    this._clearEnemies();
     const volumes = this.collision.loadMap(payload.mapId);
     const spawn = volumes.spawn ?? [0, 6];
     this.tank.reset(spawn[0], spawn[1], Math.PI);
+    this._playerPrevX = this.tank.x;
+    this._playerPrevZ = this.tank.z;
     this.sceneManager?.clearProjectiles();
     this.sceneManager?.spawnLocalTank();
+    if (payload.mode === GameMode.PVE) {
+      this._spawnEnemies(volumes, payload.difficulty);
+    }
+    this._refreshBodies();
     this._syncVisuals();
     this.cameraManager?.snapFollow();
     this.state = GameState.PLAYING;
@@ -113,6 +125,7 @@ export class GameManager {
     this.state = GameState.GAME_OVER;
     this.clock.stop();
     this.tank.setChassisInput(0, 0);
+    this._clearEnemies();
     this.collision.clear();
     this.sceneManager?.clearProjectiles();
     this.sceneManager?.despawnLocalTank();
@@ -156,16 +169,25 @@ export class GameManager {
     const prevX = this.tank.x;
     const prevZ = this.tank.z;
     this.tank.update(dt);
-
-    const moved = this.collision.resolveTankMove(prevX, prevZ, this.tank.x, this.tank.z);
+    this._refreshBodies();
+    const moved = this.collision.resolveTankMove(prevX, prevZ, this.tank.x, this.tank.z, LOCAL_TANK_ID);
     this.tank.x = moved.x;
     this.tank.z = moved.z;
 
-    this.collision.updateProjectiles(
-      dt,
+    const invDt = dt > 0 ? 1 / dt : 0;
+    const playerVx = (this.tank.x - this._playerPrevX) * invDt;
+    const playerVz = (this.tank.z - this._playerPrevZ) * invDt;
+    this._playerPrevX = this.tank.x;
+    this._playerPrevZ = this.tank.z;
+
+    this._tickEnemies(dt, playerVx, playerVz);
+
+    this._refreshBodies();
+    const tanks = [
       { id: LOCAL_TANK_ID, x: this.tank.x, z: this.tank.z },
-      (entityId) => this._damage(entityId, SHOT_DAMAGE),
-    );
+      ...this.enemies.map((e) => ({ id: e.id, x: e.tank.x, z: e.tank.z })),
+    ];
+    this.collision.updateProjectiles(dt, tanks, (entityId) => this._damage(entityId, SHOT_DAMAGE));
 
     if (this.state !== GameState.PLAYING) return;
     this._syncVisuals();
@@ -177,15 +199,30 @@ export class GameManager {
    */
   _damage(entityId, amount) {
     if (this.state !== GameState.PLAYING) return;
-    if (entityId !== LOCAL_TANK_ID) return;
-    this.hp = Math.max(0, this.hp - amount);
+    if (entityId === LOCAL_TANK_ID) {
+      this.hp = Math.max(0, this.hp - amount);
+      this.bus.emit(Topics.TANK_DAMAGED, {
+        entityId,
+        currentHp: this.hp,
+        maxHp: this.maxHp,
+      });
+      if (this.hp <= 0) {
+        this.endMatch({ winner: 'arena', score: 0 });
+      }
+      return;
+    }
+
+    const enemy = this.enemies.find((e) => e.id === entityId);
+    if (!enemy) return;
+    enemy.hp = Math.max(0, enemy.hp - amount);
     this.bus.emit(Topics.TANK_DAMAGED, {
       entityId,
-      currentHp: this.hp,
-      maxHp: this.maxHp,
+      currentHp: enemy.hp,
+      maxHp: enemy.maxHp,
     });
-    if (this.hp <= 0) {
-      this.endMatch({ winner: 'arena', score: 0 });
+    if (enemy.hp <= 0) {
+      this.sceneManager?.despawnEnemyTank(enemy.id);
+      this.enemies = this.enemies.filter((e) => e.id !== entityId);
     }
   }
 
@@ -206,6 +243,13 @@ export class GameManager {
       maxHp: this.maxHp,
       obstacleCount: this.collision.obstacles.length,
       projectileCount: this.collision.projectiles.length,
+      enemies: this.enemies.map((e) => ({
+        id: e.id,
+        state: e.ai.state,
+        hp: e.hp,
+        x: e.tank.x,
+        z: e.tank.z,
+      })),
     };
   }
 
@@ -215,6 +259,7 @@ export class GameManager {
       this._raf = null;
     }
     this.clock.stop();
+    this._clearEnemies();
     this.collision.clear();
     this.sceneManager?.clearProjectiles();
     this.sceneManager?.despawnLocalTank();
@@ -230,6 +275,9 @@ export class GameManager {
   _syncVisuals() {
     const pose = this.tank.getPose();
     this.sceneManager?.syncLocalTank(pose);
+    for (const enemy of this.enemies) {
+      this.sceneManager?.syncEnemyTank(enemy.id, enemy.tank.getPose());
+    }
     this.sceneManager?.syncProjectiles(
       this.collision.projectiles.map((p) => ({
         id: p.id,
@@ -274,5 +322,97 @@ export class GameManager {
       VALID_MAP_IDS.has(payload.mapId) &&
       VALID_DIFFICULTIES.has(payload.difficulty)
     );
+  }
+
+  _refreshBodies() {
+    this.collision.bodies = [
+      { id: LOCAL_TANK_ID, x: this.tank.x, z: this.tank.z },
+      ...this.enemies.map((e) => ({ id: e.id, x: e.tank.x, z: e.tank.z })),
+    ];
+  }
+
+  /**
+   * @param {{ enemies?: Array<[number, number, number?]> }} volumes
+   * @param {string} difficulty
+   */
+  _spawnEnemies(volumes, difficulty) {
+    const config = DifficultyConfig[difficulty] ?? DifficultyConfig.EASY;
+    const fireCooldown = 1 / Math.max(0.05, config.fireRate);
+    const spots = volumes.enemies ?? [];
+    this._refreshBodies();
+    const [px, pz] = volumes.spawn ?? [0, 6];
+    let n = 0;
+    for (const [x, z] of spots) {
+      const id = `enemy-${n}`;
+      const at = this.collision.resolveTankMove(x, z, x, z, id);
+      if (at.blocked) continue;
+      const rotY = Math.atan2(px - x, pz - z);
+      const tank = new TankController({ moveSpeed: 6.1, fireCooldown });
+      tank.reset(x, z, rotY);
+      const ai = new EnemyAI(config, { x, z });
+      this.enemies.push({ id, tank, ai, hp: this.maxHp, maxHp: this.maxHp });
+      this.sceneManager?.spawnEnemyTank(id);
+      this._refreshBodies();
+      n += 1;
+    }
+  }
+
+  _clearEnemies() {
+    this.sceneManager?.despawnEnemyTanks();
+    this.enemies.length = 0;
+  }
+
+  /**
+   * @param {number} dt
+   * @param {number} playerVx
+   * @param {number} playerVz
+   */
+  _tickEnemies(dt, playerVx, playerVz) {
+    for (const enemy of this.enemies) {
+      const world = {
+        x: enemy.tank.x,
+        z: enemy.tank.z,
+        rotY: enemy.tank.rotY,
+        turretRotY: enemy.tank.turretRotY,
+        playerX: this.tank.x,
+        playerZ: this.tank.z,
+        playerVx,
+        playerVz,
+        obstacles: this.collision.obstacles,
+        blocked: false,
+      };
+      enemy.ai.update(dt, world);
+      enemy.tank.setChassisInput(enemy.ai.throttle, enemy.ai.steer);
+      enemy.tank.setTurretInput(enemy.ai.turretSteer);
+
+      const prevX = enemy.tank.x;
+      const prevZ = enemy.tank.z;
+      enemy.tank.update(dt);
+      this._refreshBodies();
+      const moved = this.collision.resolveTankMove(
+        prevX,
+        prevZ,
+        enemy.tank.x,
+        enemy.tank.z,
+        enemy.id,
+      );
+      enemy.tank.x = moved.x;
+      enemy.tank.z = moved.z;
+      if (moved.blocked) enemy.ai.skipWaypoint();
+
+      world.x = enemy.tank.x;
+      world.z = enemy.tank.z;
+      world.rotY = enemy.tank.rotY;
+      world.turretRotY = enemy.tank.turretRotY;
+      if (enemy.ai.state === 'ENGAGE' || enemy.ai.state === 'PURSUE') {
+        enemy.ai.wantFire = enemy.ai._readyToShoot(world, enemy.ai._canSee(world));
+      }
+
+      if (!enemy.ai.wantFire) continue;
+      const shot = enemy.tank.tryFire(false);
+      if (!shot) continue;
+      this.bus.emit(Topics.PLAYER_FIRE, shot);
+      this.collision.spawnProjectile(shot, enemy.id);
+    }
   }
 }

@@ -75,7 +75,7 @@ export class UIManager {
     });
 
     this.bus.on(Topics.TANK_DAMAGED, (payload) => {
-      if (!payload) return;
+      if (!payload || payload.entityId !== 'local') return;
       this.hud.setArmor(Number(payload.currentHp), Number(payload.maxHp) || 100);
     });
 

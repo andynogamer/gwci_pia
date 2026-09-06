@@ -4,16 +4,19 @@
 import * as THREE from 'three';
 
 export class LocalTankView {
-  constructor() {
+  /**
+   * @param {{ name?: string, hull?: number, turret?: number, skirt?: number }} [palette]
+   */
+  constructor(palette = {}) {
     this.root = new THREE.Group();
-    this.root.name = 'local-tank';
+    this.root.name = palette.name ?? 'local-tank';
 
     this._geoms = [];
     this._mats = [];
 
-    const hullMat = this._mat(0x3d6b3a);
-    const darkMat = this._mat(0x2a3328);
-    const turretMat = this._mat(0x4a7c44);
+    const hullMat = this._mat(palette.hull ?? 0x3d6b3a);
+    const darkMat = this._mat(palette.skirt ?? 0x2a3328);
+    const turretMat = this._mat(palette.turret ?? 0x4a7c44);
     const barrelMat = this._mat(0x2c2c28);
 
     const hull = new THREE.Mesh(this._geo(new THREE.BoxGeometry(2.2, 0.7, 3.1)), hullMat);

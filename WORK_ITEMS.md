@@ -49,7 +49,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-006](#wi-006) | boot | Logic | State machine + `THREE.Clock` game loop | WI-001 | DONE |
 | [WI-007](#wi-007) | — | Logic | Local tank chassis + turret (delta-time) | WI-006, WI-003 | DONE |
 | [WI-008](#wi-008) | REQ-COL-LIGHT | Logic | AABB collision manager (`THREE.Box3`) | WI-007, WI-005 | DONE |
-| [WI-009](#wi-009) | REQ-AI-PART, REQ-DIFF | Logic | Enemy FOV, LOS raycast, AI FSM, two difficulties | WI-007, WI-008 | TODO |
+| [WI-009](#wi-009) | REQ-AI-PART, REQ-DIFF | Logic | Enemy FOV, LOS raycast, AI FSM, two difficulties | WI-007, WI-008 | DONE |
 | [WI-010](#wi-010) | REQ-AI-PART | Engine | `THREE.Points` muzzle / impact / smoke / explosion | WI-003 | TODO |
 | [WI-011](#wi-011) | REQ-SND-ITM | Logic | BGM + SFX; Shield, Triple Shell, Repair Kit | WI-006 | TODO |
 | [WI-012](#wi-012) | REQ-MODES | Logic | Horde Survival (PVE waves) | WI-009, WI-011 | TODO |
@@ -62,6 +62,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-019](#wi-019) | playability | UI + Logic + Engine | Pause hits, spawn facing, headlight, turret-follow cam | WI-007 | DONE |
 | [WI-020](#wi-020) | playability | Logic + Engine + UI | Smoother follow cam; turret on arrow keys | WI-019 | DONE |
 | [WI-021](#wi-021) | playability | Logic + Engine + UI | Spacebar fire; visible shells; HP from bullets only | WI-008 | DONE |
+| [WI-022](#wi-022) | playability | Logic + Engine | EASY AI fires; headlight follows cannon | WI-009 | DONE |
 
 **Next playable vertical slice:** WI-001 → WI-002 + WI-003 + WI-006 (loop + menus + empty scene).
 
@@ -279,7 +280,7 @@ Publish TANK_DAMAGED. No external physics engines. No UI. No renderer ownership.
 - **Out of scope:** particles, time-based difficulty
 - **Acceptance:** FOV via `dot(u,v)`; LOS via `Raycaster`. FSM Patrol → Investigate → Pursue → Engage. EASY vs HARD per SPEC.md table (FOV, latency, fire/prediction — not match duration).
 - **Dispose / pause:** AI ticks scaled by `dt`; paused when Paused
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
@@ -543,5 +544,26 @@ move the tank SpotLight clear of the barrel, and follow-camera yaw = turretRotY.
 ```
 Execute WORK_ITEMS.md WI-021 only.
 Spacebar fire. Visible shells synced from Logic. HP only from bullets, not crashes.
+```
+
+---
+
+### WI-022
+
+- **REQ:** playability (EASY combat + turret headlight)
+- **Agent:** Logic + Engine
+- **Scope:** `EnemyAI.js`, `GameManager.js`, `DualLights.js`, `SceneManager.js`
+- **Depends on:** WI-009
+- **Contracts:** none new
+- **Out of scope:** particles, waves
+- **Acceptance:** Recruit (EASY) enemies fire after reaction latency. Headlight yaws with the cannon, not the hull.
+- **Dispose / pause:** unchanged
+- **Status:** DONE
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-022 only.
+EASY AI must shoot. Parent the tank SpotLight to the turret.
 ```
 
