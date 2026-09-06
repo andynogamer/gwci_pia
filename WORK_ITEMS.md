@@ -58,13 +58,18 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-015](#wi-015) | REQ-MULTI | Network | WebSocket 1v1 rooms + `CLIENT_STATE_UPDATE` | WI-007, WI-013 | DONE |
 | [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | DONE |
 | [WI-017](#wi-017) | REQ-COL-LIGHT | Engine | Shield / ground `ShaderMaterial` | WI-010, WI-011 | DONE |
-| [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | TODO |
+| [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | DONE |
 | [WI-019](#wi-019) | playability | UI + Logic + Engine | Pause hits, spawn facing, headlight, turret-follow cam | WI-007 | DONE |
 | [WI-020](#wi-020) | playability | Logic + Engine + UI | Smoother follow cam; turret on arrow keys | WI-019 | DONE |
 | [WI-021](#wi-021) | playability | Logic + Engine + UI | Spacebar fire; visible shells; HP from bullets only | WI-008 | DONE |
 | [WI-022](#wi-022) | playability | Logic + Engine | EASY AI fires; headlight follows cannon | WI-009 | DONE |
+| [WI-023](#wi-023) | playability | Logic | Recruit opening seconds are not a death sentence | WI-018, WI-022 | TODO |
+| [WI-024](#wi-024) | REQ-UI | UI | Show `GAME_OVER` winner + score | WI-012, WI-018 | TODO |
+| [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | TODO |
+| [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | TODO |
+| [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | TODO |
 
-**Next playable vertical slice:** WI-001 → WI-002 + WI-003 + WI-006 (loop + menus + empty scene).
+**Next playable slice:** WI-023 (Recruit spawn) → WI-024 (game-over screen). Auth/scores (WI-026) unblocks closing REQ-SRV-DB.
 
 ---
 
@@ -479,7 +484,7 @@ No gameplay state. Dispose materials on unload.
 - **Out of scope:** new features
 - **Acceptance:** Chrome Playing ~60 FPS. Restart match twice with no retained geometry/material/texture growth.
 - **Dispose / pause:** prove teardown
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
@@ -565,5 +570,116 @@ Spacebar fire. Visible shells synced from Logic. HP only from bullets, not crash
 ```
 Execute WORK_ITEMS.md WI-022 only.
 EASY AI must shoot. Parent the tank SpotLight to the turret.
+```
+
+---
+
+### WI-023
+
+- **REQ:** playability (found in WI-018 Chrome: Recruit Desert died in the opening seconds)
+- **Agent:** Logic
+- **Scope:** `/src/logic/gamemodes/HordeSurvival.js`, `/src/logic/ai/`, spawn in `GameManager.js` / `mapVolumes.js`
+- **Depends on:** WI-018, WI-022
+- **Contracts:** none new
+- **Out of scope:** HUD, shaders, network, changing SHOT_DAMAGE as the only lever
+- **Acceptance:** On Recruit (EASY) Desert, a player who stays at spawn for 8 s after Deploy is still alive. Wave 1 may spawn, but it must not land a same-frame volley from opening LOS. HARD may stay mean; EASY vs HARD must remain FOV / latency / fire-rate (REQ-DIFF), not a longer match timer.
+- **Dispose / pause:** pause still freezes AI timers
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-023 only.
+You are Agent-Logic. Recruit opening seconds killed the player in WI-018 Chrome.
+Give wave-1 a spawn/engage grace so an idle tank at spawn survives ~8s on EASY Desert.
+Do not nerf HARD into EASY. No DOM. No engine meshes.
+```
+
+---
+
+### WI-024
+
+- **REQ:** REQ-UI (`Display GAME_OVER` in `src/ui/AGENTS.md`)
+- **Agent:** UI
+- **Scope:** `/src/ui/` (new overlay or Main Menu result panel)
+- **Depends on:** WI-012, WI-018
+- **Contracts:** existing `GAME_OVER` `{ winner, score }` only
+- **Out of scope:** REST POST (WI-026), radar (WI-025)
+- **Acceptance:** After a match ends (death, victory, or Quit), `#ui-root` shows winner and score from the payload. Player can return to Main Menu and Deploy again. WI-018 Chrome currently skips this and dumps straight to the loadout form.
+- **Dispose / pause:** overlay is DOM-only; does not keep the sim running
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-024 only.
+You are Agent-UI. Subscribe to GAME_OVER and show winner + score under #ui-root.
+Do not import three. Do not POST scores. Do not edit engine or logic.
+```
+
+---
+
+### WI-025
+
+- **REQ:** REQ-UI (HUD radar + power-up timer)
+- **Agent:** UI + Logic (owners stay in their folders; Integrator wires if needed)
+- **Scope:** `/src/ui/components/Hud.js`, `/src/logic/GameManager.js`, `/src/core/Constants.js` + [CONTRACTS.md](./CONTRACTS.md) in the same change
+- **Depends on:** WI-011, WI-018
+- **Contracts:** **new topic required.** WI-018 Chrome showed a static “Power-up —” chip and an empty `[data-radar]` box. UI must not read Object3D transforms. Add a JSON-only bus payload (for example `HUD_STATE`) with local `{x,z,rotY}`, other tanks `{id,x,z}`, and active power-up `{type, remaining}` or null. No Three.js objects.
+- **Out of scope:** Three.js mini-scene radar; auth; GAME_OVER overlay (WI-024)
+- **Acceptance:** While Playing, radar dots move from bus numbers. Power-up chip counts remaining seconds from Logic `dt`, not a hardcoded UI timer that ignores pause.
+- **Dispose / pause:** paused clock freezes remaining; radar unsubs or ignores ticks while not Playing
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-025 only.
+HUD radar + power-up countdown. Update CONTRACTS.md and Constants.js in the same change.
+Logic publishes plain numbers; UI draws DOM/canvas under #ui-root. No three in /src/ui.
+```
+
+---
+
+### WI-026
+
+- **REQ:** REQ-SRV-DB (SPEC still PARTIAL: register / login / POST scores)
+- **Agent:** UI + Network (Integrator may wire `ApiClient` / token in `main.js` only)
+- **Scope:** `/src/ui/screens/` auth fields, `/src/network/` token + `POST /api/scores` on `GAME_OVER`
+- **Depends on:** WI-014, WI-018
+- **Contracts:** CONTRACTS.md §C exactly; no new REST fields
+- **Out of scope:** MySQL schema changes; PVP transport (WI-027)
+- **Acceptance:** Register + login from `#ui-root`. After an authenticated match, `GAME_OVER` POSTs `{ score, mode, difficulty }` with Bearer token. Highscores refresh shows that row. WI-018 never submitted a score (no auth UI, NetworkClient only disconnects).
+- **Dispose / pause:** n/a (HTTP); do not log passwords
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-026 only.
+Login/register in UI. On GAME_OVER, Network POSTs /api/scores when a token exists.
+Do not invent REST fields. Do not open sockets for this item. Parameterized SQL already exists.
+```
+
+---
+
+### WI-027
+
+- **REQ:** REQ-MULTI (SPEC still PARTIAL; WI-018 was a single Chrome tab)
+- **Agent:** Network (fix handshake/relay only; Logic already owns duel rules)
+- **Scope:** `/src/network/NetworkClient.js`, `/server/ws/`
+- **Depends on:** WI-015, WI-016, WI-018
+- **Contracts:** existing `JOIN_ROOM` / `ROOM_READY` / `CLIENT_STATE_UPDATE` / `PLAYER_FIRE` / heartbeat
+- **Out of scope:** server-side AABB; new WS events; HUD radar
+- **Acceptance:** Two Chrome clients, same PVP room, same `mapId`: each sees opponent chassis, turret yaw, and fire. Heartbeat still drops a stale peer. Document the room id the menu uses if it is not obvious.
+- **Dispose / pause:** socket closes on `GAME_OVER` / leave (already required)
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-027 only.
+You are Agent-Network. Prove two Chrome clients in one 1v1 room.
+Relay pose, turret, and fire only. No rendering. No damage math.
 ```
 

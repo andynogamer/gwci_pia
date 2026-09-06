@@ -25,12 +25,14 @@ export class LocalTankView {
     hull.receiveShadow = true;
     this.root.add(hull);
 
-    const skirtL = new THREE.Mesh(this._geo(new THREE.BoxGeometry(0.35, 0.45, 3.2)), darkMat);
+    const skirtGeo = this._geo(new THREE.BoxGeometry(0.35, 0.45, 3.2));
+    const skirtL = new THREE.Mesh(skirtGeo, darkMat);
     skirtL.position.set(-1.15, 0.35, 0);
     skirtL.castShadow = true;
     this.root.add(skirtL);
-    const skirtR = skirtL.clone();
-    skirtR.position.x = 1.15;
+    const skirtR = new THREE.Mesh(skirtGeo, darkMat);
+    skirtR.position.set(1.15, 0.35, 0);
+    skirtR.castShadow = true;
     this.root.add(skirtR);
 
     this.turretPivot = new THREE.Group();

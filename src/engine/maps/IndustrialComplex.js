@@ -119,20 +119,23 @@ export function buildIndustrialComplex() {
     }),
   );
 
-  // Perimeter fence posts
+  // Perimeter fence posts (shared geo — disposed once with the map tree)
+  const postGeo = new THREE.BoxGeometry(0.25, 2.8, 0.25);
   for (let i = -18; i <= 18; i += 6) {
     root.add(
-      makeMesh(new THREE.BoxGeometry(0.25, 2.8, 0.25), metal, {
+      makeMesh(postGeo, metal, {
         x: i,
         y: 1.4,
         z: -22,
+        cast: false,
       }),
     );
     root.add(
-      makeMesh(new THREE.BoxGeometry(0.25, 2.8, 0.25), metal, {
+      makeMesh(postGeo, metal, {
         x: i,
         y: 1.4,
         z: 22,
+        cast: false,
       }),
     );
   }

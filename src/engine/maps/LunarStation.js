@@ -51,7 +51,7 @@ export function buildLunarStation() {
   sun.name = 'lunar-sun';
   sun.position.set(-18, 28, 10);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.mapSize.set(512, 512);
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 80;
   sun.shadow.camera.left = -30;

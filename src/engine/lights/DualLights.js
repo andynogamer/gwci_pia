@@ -10,7 +10,7 @@ export class DualLights {
 
     this.spot = new THREE.SpotLight(0xfff0d0, 5, 55, Math.PI / 5, 0.35, 1);
     this.spot.castShadow = true;
-    this.spot.shadow.mapSize.set(1024, 1024);
+    this.spot.shadow.mapSize.set(512, 512);
     this.spot.shadow.camera.near = 0.5;
     this.spot.shadow.camera.far = 60;
     this.spot.shadow.bias = -0.00025;

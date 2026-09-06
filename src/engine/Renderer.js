@@ -30,6 +30,9 @@ export class Renderer {
     /** @type {Array<() => void>} */
     this._unsubs = [];
     this._onResize = () => this._handleResize();
+    /** @type {number[]} */
+    this._frameDts = [];
+    this._lastFrameMs = 0;
   }
 
   mount() {
@@ -37,11 +40,12 @@ export class Renderer {
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
-      antialias: true,
+      antialias: false,
+      powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.sceneManager.preparePlaceholder();
     this._handleResize();
@@ -167,6 +171,8 @@ export class Renderer {
     this.paused = true;
     this.clock.stop();
     this.sceneManager.dispose();
+    this.renderer?.renderLists.dispose();
+    this.sceneManager.preparePlaceholder();
   }
 
   _handleResize() {
@@ -180,6 +186,7 @@ export class Renderer {
     if (!this.running || !this.renderer) return;
 
     this._raf = requestAnimationFrame(() => this._tick());
+    this._sampleFps();
 
     if (this.paused) {
       this.renderer.render(this.sceneManager.scene, this.cameraManager.camera);
@@ -190,6 +197,66 @@ export class Renderer {
     this.sceneManager.update(dt);
     this.cameraManager.update(dt);
     this.renderer.render(this.sceneManager.scene, this.cameraManager.camera);
+  }
+
+  _sampleFps() {
+    const now = performance.now();
+    if (this._lastFrameMs > 0) {
+      this._frameDts.push(now - this._lastFrameMs);
+      if (this._frameDts.length > 90) this._frameDts.shift();
+    }
+    this._lastFrameMs = now;
+  }
+
+  /**
+   * GPU / scene counts for the constitution §6 restart gate. JSON-safe.
+   */
+  getGpuStats() {
+    const info = this.renderer?.info;
+    const scene = this.sceneManager.scene;
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+    let objects = 0;
+
+    scene.traverse((obj) => {
+      objects += 1;
+      if (obj.geometry) geometries.add(obj.geometry);
+      if (obj.material) {
+        const list = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const mat of list) {
+          if (!mat) continue;
+          materials.add(mat);
+          for (const value of Object.values(mat)) {
+            if (value && typeof value === 'object' && value.isTexture) {
+              textures.add(value);
+            }
+          }
+        }
+      }
+      if (obj.isLight && obj.shadow?.map?.texture) {
+        textures.add(obj.shadow.map.texture);
+      }
+    });
+
+    const dts = this._frameDts;
+    const fps =
+      dts.length >= 8 ? 1000 / (dts.reduce((a, b) => a + b, 0) / dts.length) : 0;
+
+    return {
+      fps: Math.round(fps * 10) / 10,
+      sceneChildren: scene.children.length,
+      objects,
+      sceneGeometries: geometries.size,
+      sceneMaterials: materials.size,
+      sceneTextures: textures.size,
+      infoGeometries: info?.memory.geometries ?? 0,
+      infoTextures: info?.memory.textures ?? 0,
+      programs: info?.programs?.length ?? 0,
+      calls: info?.render.calls ?? 0,
+      triangles: info?.render.triangles ?? 0,
+      particleBursts: this.sceneManager.particles?.burstCount ?? 0,
+    };
   }
 
   /**
@@ -214,6 +281,7 @@ export class Renderer {
 
     this.sceneManager.dispose();
 
+    this.renderer?.renderLists.dispose();
     this.renderer?.dispose();
     this.renderer = null;
   }

@@ -541,11 +541,15 @@ export class GameManager {
     if (!this.duel.applyRemoteState(payload)) return;
     const r = this.duel.remote;
     if (!r) return;
+    const prevHp = this.opponent?.hp;
     this._ensureOpponent(r.id, r.pos[0], r.pos[2]);
     this._syncOpponentBody();
+    if (!this.opponent || !Number.isFinite(prevHp) || this.opponent.hp === prevHp) {
+      return;
+    }
     this.bus.emit(Topics.TANK_DAMAGED, {
-      entityId: r.id,
-      currentHp: r.hp,
+      entityId: this.opponent.id,
+      currentHp: this.opponent.hp,
       maxHp: this.maxHp,
     });
   }

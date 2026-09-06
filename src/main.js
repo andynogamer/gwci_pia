@@ -46,6 +46,7 @@ if (import.meta.env.DEV) {
     get lights() { return sceneManager.lights; },
     get particles() { return sceneManager.particles; },
     get shieldFx() { return sceneManager.shieldFx; },
+    getGpuStats: () => renderer.getGpuStats(),
   };
   window.__mtaLogic = { game };
 }

@@ -18,6 +18,16 @@ import * as THREE from 'three';
  * }} Burst
  */
 
+const COLOR_MUZZLE_A = new THREE.Color(1, 0.72, 0.2);
+const COLOR_MUZZLE_B = new THREE.Color(1, 0.25, 0.05);
+const COLOR_IMPACT_A = new THREE.Color(1, 0.85, 0.4);
+const COLOR_IMPACT_B = new THREE.Color(0.9, 0.2, 0.05);
+const COLOR_SMOKE_A = new THREE.Color(0.45, 0.48, 0.5);
+const COLOR_SMOKE_B = new THREE.Color(0.2, 0.22, 0.24);
+const COLOR_BOOM_A = new THREE.Color(1, 0.55, 0.1);
+const COLOR_BOOM_B = new THREE.Color(0.4, 0.05, 0.02);
+const UP = new THREE.Vector3(0, 1, 0);
+
 export class ParticleSystem {
   constructor() {
     this.root = new THREE.Group();
@@ -30,6 +40,14 @@ export class ParticleSystem {
     this._scene = null;
 
     this._tmp = new THREE.Vector3();
+    this._quat = new THREE.Quaternion();
+    this._zAxis = new THREE.Vector3(0, 0, 1);
+    this._local = new THREE.Vector3();
+    this._muzzleDir = new THREE.Vector3();
+  }
+
+  get burstCount() {
+    return this._bursts.length;
   }
 
   /**
@@ -58,7 +76,7 @@ export class ParticleSystem {
    * @param {[number, number, number]} direction
    */
   spawnMuzzle(origin, direction) {
-    const dir = this._tmp.set(direction[0], direction[1], direction[2]);
+    const dir = this._muzzleDir.set(direction[0], direction[1], direction[2]);
     if (dir.lengthSq() < 1e-8) dir.set(0, 0, 1);
     dir.normalize();
 
@@ -70,9 +88,9 @@ export class ParticleSystem {
       speedMin: 4,
       speedMax: 14,
       gravity: 2,
-      color: new THREE.Color(1, 0.72, 0.2),
-      colorEnd: new THREE.Color(1, 0.25, 0.05),
-      coneDir: dir.clone(),
+      color: COLOR_MUZZLE_A,
+      colorEnd: COLOR_MUZZLE_B,
+      coneDir: dir,
       coneSpread: 0.35,
       size: 0.45,
       additive: true,
@@ -92,8 +110,8 @@ export class ParticleSystem {
       speedMin: 3,
       speedMax: 11,
       gravity: 6,
-      color: new THREE.Color(1, 0.85, 0.4),
-      colorEnd: new THREE.Color(0.9, 0.2, 0.05),
+      color: COLOR_IMPACT_A,
+      colorEnd: COLOR_IMPACT_B,
       coneDir: null,
       coneSpread: 1,
       size: 0.35,
@@ -114,9 +132,9 @@ export class ParticleSystem {
       speedMin: 0.4,
       speedMax: 1.8,
       gravity: -1.2,
-      color: new THREE.Color(0.45, 0.48, 0.5),
-      colorEnd: new THREE.Color(0.2, 0.22, 0.24),
-      coneDir: new THREE.Vector3(0, 1, 0),
+      color: COLOR_SMOKE_A,
+      colorEnd: COLOR_SMOKE_B,
+      coneDir: UP,
       coneSpread: 0.55,
       size: 0.7,
       additive: false,
@@ -136,8 +154,8 @@ export class ParticleSystem {
       speedMin: 5,
       speedMax: 16,
       gravity: 4,
-      color: new THREE.Color(1, 0.55, 0.1),
-      colorEnd: new THREE.Color(0.4, 0.05, 0.02),
+      color: COLOR_BOOM_A,
+      colorEnd: COLOR_BOOM_B,
       coneDir: null,
       coneSpread: 1,
       size: 0.55,
@@ -223,10 +241,10 @@ export class ParticleSystem {
     const colors = new Float32Array(cfg.count * 3);
     const velocities = new Float32Array(cfg.count * 3);
 
-    const quat = new THREE.Quaternion();
-    const zAxis = new THREE.Vector3(0, 0, 1);
+    const quat = this._quat.identity();
+    const zAxis = this._zAxis.set(0, 0, 1);
     if (cfg.coneDir) {
-      const d = cfg.coneDir.clone().normalize();
+      const d = this._tmp.copy(cfg.coneDir).normalize();
       if (d.lengthSq() > 1e-8) {
         quat.setFromUnitVectors(zAxis, d);
       }
@@ -245,11 +263,12 @@ export class ParticleSystem {
       if (cfg.coneDir) {
         const angle = Math.random() * Math.PI * 2;
         const spread = Math.random() * cfg.coneSpread;
-        const local = new THREE.Vector3(
-          Math.cos(angle) * spread,
-          Math.sin(angle) * spread,
-          1,
-        )
+        const local = this._local
+          .set(
+            Math.cos(angle) * spread,
+            Math.sin(angle) * spread,
+            1,
+          )
           .normalize()
           .multiplyScalar(speed)
           .applyQuaternion(quat);
