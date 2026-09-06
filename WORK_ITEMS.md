@@ -63,7 +63,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-020](#wi-020) | playability | Logic + Engine + UI | Smoother follow cam; turret on arrow keys | WI-019 | DONE |
 | [WI-021](#wi-021) | playability | Logic + Engine + UI | Spacebar fire; visible shells; HP from bullets only | WI-008 | DONE |
 | [WI-022](#wi-022) | playability | Logic + Engine | EASY AI fires; headlight follows cannon | WI-009 | DONE |
-| [WI-023](#wi-023) | playability | Logic | Recruit opening seconds are not a death sentence | WI-018, WI-022 | TODO |
+| [WI-023](#wi-023) | playability | Logic | Recruit opening seconds are not a death sentence | WI-018, WI-022 | DONE |
 | [WI-024](#wi-024) | REQ-UI | UI | Show `GAME_OVER` winner + score | WI-012, WI-018 | TODO |
 | [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | TODO |
 | [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | TODO |
@@ -584,7 +584,7 @@ EASY AI must shoot. Parent the tank SpotLight to the turret.
 - **Out of scope:** HUD, shaders, network, changing SHOT_DAMAGE as the only lever
 - **Acceptance:** On Recruit (EASY) Desert, a player who stays at spawn for 8 s after Deploy is still alive. Wave 1 may spawn, but it must not land a same-frame volley from opening LOS. HARD may stay mean; EASY vs HARD must remain FOV / latency / fire-rate (REQ-DIFF), not a longer match timer.
 - **Dispose / pause:** pause still freezes AI timers
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

@@ -35,8 +35,9 @@ export class EnemyAI {
   /**
    * @param {{ fovDegrees: number, reactionLatency: number, fireRate: number, predictTrajectory: boolean }} difficultyConfig
    * @param {{ x: number, z: number, waypoints?: Array<[number, number]> }} [home]
+   * @param {{ spawnGrace?: number }} [opts] WI-023 — seconds before FOV/engage may start (dt-scaled)
    */
-  constructor(difficultyConfig, home = { x: 0, z: 0 }) {
+  constructor(difficultyConfig, home = { x: 0, z: 0 }, opts = {}) {
     this.config = difficultyConfig;
     this.state = AiState.PATROL;
     this.homeX = home.x;
@@ -57,6 +58,8 @@ export class EnemyAI {
     this.steer = 0;
     this.turretSteer = 0;
     this.wantFire = false;
+    /** @type {number} */
+    this.spawnGraceT = Math.max(0, Number(opts.spawnGrace) || 0);
   }
 
   /**
@@ -70,6 +73,15 @@ export class EnemyAI {
    */
   update(dt, world) {
     if (dt <= 0) return;
+
+    if (this.spawnGraceT > 0) {
+      this.spawnGraceT = Math.max(0, this.spawnGraceT - dt);
+      this.wantFire = false;
+      this.reactionT = 0;
+      // Patrol without combat awareness — no opening LOS volley.
+      this._patrol(dt, world, false);
+      return;
+    }
 
     const seen = this._canSee(world);
     if (seen) {
@@ -214,6 +226,7 @@ export class EnemyAI {
    * EASY uses a looser aim gate; HARD keeps a tighter lead shot.
    */
   _readyToShoot(world, seen) {
+    if (this.spawnGraceT > 0) return false;
     if (!seen) return false;
     const dist = Math.hypot(world.playerX - world.x, world.playerZ - world.z);
     if (dist > ENGAGE_RANGE * 1.15) return false;

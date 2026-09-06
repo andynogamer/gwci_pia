@@ -462,11 +462,12 @@ export class GameManager {
     const [px, pz] = volumes.spawn ?? [0, 6];
 
     this.horde = new HordeSurvival({
+      difficulty,
       spawnPoints: spots,
       aliveCount: () => this.enemies.length,
       onVictory: (result) => this.endMatch(result),
       spawnEnemy: (spot, index) => {
-        this._spawnEnemyAt(spot.x, spot.z, index, config, px, pz);
+        this._spawnEnemyAt(spot.x, spot.z, index, config, px, pz, difficulty);
       },
     });
     this.horde.start();
@@ -581,8 +582,9 @@ export class GameManager {
    * @param {{ fovDegrees: number, reactionLatency: number, fireRate: number, predictTrajectory: boolean }} config
    * @param {number} px player spawn x
    * @param {number} pz player spawn z
+   * @param {string} [difficulty]
    */
-  _spawnEnemyAt(x, z, index, config, px, pz) {
+  _spawnEnemyAt(x, z, index, config, px, pz, difficulty = Difficulty.EASY) {
     const id = `enemy-${index}`;
     const fireCooldown = 1 / Math.max(0.05, config.fireRate);
     this._refreshBodies();
@@ -605,10 +607,18 @@ export class GameManager {
 
     const sx = at.x;
     const sz = at.z;
-    const rotY = Math.atan2(px - sx, pz - sz);
+    const towardPlayer = Math.atan2(px - sx, pz - sz);
+    // Recruit faces away so opening FOV is empty; Veteran keeps mean forward spawn.
+    const rotY =
+      difficulty === Difficulty.HARD ? towardPlayer : towardPlayer + Math.PI;
     const tank = new TankController({ moveSpeed: 6.1, fireCooldown });
     tank.reset(sx, sz, rotY);
-    const ai = new EnemyAI(config, { x: sx, z: sz });
+    if (difficulty === Difficulty.EASY) {
+      // First shot cannot be ready on the engage frame (no same-frame volley).
+      tank.fireCooldown = fireCooldown * 0.9;
+    }
+    const spawnGrace = difficulty === Difficulty.HARD ? 0.2 : 3.2;
+    const ai = new EnemyAI(config, { x: sx, z: sz }, { spawnGrace });
     this.enemies.push({ id, tank, ai, hp: this.maxHp, maxHp: this.maxHp });
     this.sceneManager?.spawnEnemyTank(id);
     this._refreshBodies();
@@ -676,7 +686,11 @@ export class GameManager {
       world.rotY = enemy.tank.rotY;
       world.turretRotY = enemy.tank.turretRotY;
       if (enemy.ai.state === 'ENGAGE' || enemy.ai.state === 'PURSUE') {
-        enemy.ai.wantFire = enemy.ai._readyToShoot(world, enemy.ai._canSee(world));
+        if (enemy.ai.spawnGraceT <= 0) {
+          enemy.ai.wantFire = enemy.ai._readyToShoot(world, enemy.ai._canSee(world));
+        } else {
+          enemy.ai.wantFire = false;
+        }
       }
 
       if (!enemy.ai.wantFire) continue;

@@ -85,9 +85,10 @@ function lunarObstacles() {
 const BY_MAP = {
   1: {
     spawn: [0, 6],
+    // South corners — longer approach to player spawn; less opening LOS than mid-south.
     enemies: [
-      [12, -14, 0],
-      [-12, -14, 0],
+      [18, -18, 0],
+      [-18, -18, 0],
     ],
     bounds: arenaBounds(),
     obstacles: desertObstacles(),
