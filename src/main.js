@@ -40,7 +40,7 @@ if (import.meta.env.DEV) {
 }
 
 /**
- * WASD hull, arrow keys turret, left click fire.
+ * WASD hull, arrow keys turret, Space fire.
  * @param {GameManager} gameManager
  */
 function bindLocalTankInput(gameManager) {
@@ -73,6 +73,13 @@ function bindLocalTankInput(gameManager) {
       keys.add(e.code);
       syncChassis();
     }
+    if (e.code === 'Space') {
+      if (e.target instanceof Element && e.target.closest('input, textarea, select')) {
+        return;
+      }
+      e.preventDefault();
+      gameManager.tryFire();
+    }
   });
   window.addEventListener('keyup', (e) => {
     if (isTurretKey(e.code)) {
@@ -89,14 +96,5 @@ function bindLocalTankInput(gameManager) {
     keys.clear();
     syncChassis();
     syncTurret();
-  });
-
-  window.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
-    const t = e.target;
-    if (t instanceof Element && t.closest('button, input, select, textarea, a, label, .ui-screen')) {
-      return;
-    }
-    gameManager.tryFire();
   });
 }

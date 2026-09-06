@@ -25,6 +25,13 @@ export class SceneManager {
 
     /** @type {LocalTankView | null} */
     this._localTank = null;
+
+    /** @type {Map<number, THREE.Mesh>} */
+    this._shells = new Map();
+    /** @type {THREE.SphereGeometry | null} */
+    this._shellGeo = null;
+    /** @type {THREE.MeshStandardMaterial | null} */
+    this._shellMat = null;
   }
 
   /**
@@ -140,6 +147,62 @@ export class SceneManager {
     this._localTank = null;
   }
 
+  /**
+   * Logic-owned AABB shells as simple meshes (particle FX is WI-010).
+   * @param {Array<{ id: number, x: number, y: number, z: number }>} shots
+   */
+  syncProjectiles(shots) {
+    this._ensureShellAssets();
+    const live = new Set();
+    for (const shot of shots) {
+      live.add(shot.id);
+      let mesh = this._shells.get(shot.id);
+      if (!mesh) {
+        mesh = new THREE.Mesh(this._shellGeo, this._shellMat);
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        this.scene.add(mesh);
+        this._shells.set(shot.id, mesh);
+      }
+      mesh.position.set(shot.x, shot.y, shot.z);
+    }
+    for (const [id, mesh] of this._shells) {
+      if (live.has(id)) continue;
+      this.scene.remove(mesh);
+      this._shells.delete(id);
+    }
+  }
+
+  clearProjectiles() {
+    for (const mesh of this._shells.values()) {
+      this.scene.remove(mesh);
+    }
+    this._shells.clear();
+  }
+
+  _ensureShellAssets() {
+    if (!this._shellGeo) {
+      this._shellGeo = new THREE.SphereGeometry(0.28, 10, 8);
+    }
+    if (!this._shellMat) {
+      this._shellMat = new THREE.MeshStandardMaterial({
+        color: 0xffc14d,
+        emissive: 0xff9a1f,
+        emissiveIntensity: 1.4,
+        roughness: 0.35,
+        metalness: 0.2,
+      });
+    }
+  }
+
+  _disposeShellAssets() {
+    this.clearProjectiles();
+    this._shellGeo?.dispose();
+    this._shellMat?.dispose();
+    this._shellGeo = null;
+    this._shellMat = null;
+  }
+
   /** Remove current map / placeholder meshes and dispose GPU resources. */
   unloadMap() {
     for (const obj of this._owned) {
@@ -163,6 +226,7 @@ export class SceneManager {
    */
   dispose() {
     this.despawnLocalTank();
+    this._disposeShellAssets();
     this.unloadMap();
 
     if (this.lights) {

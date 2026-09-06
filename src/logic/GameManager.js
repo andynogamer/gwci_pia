@@ -1,14 +1,18 @@
 /**
- * Agent-Logic — WI-006 state machine + WI-007 local tank tick.
+ * Agent-Logic — WI-006 state machine + WI-007 tank + WI-008 AABB collisions.
  * Boot → Menu → Playing → Paused → GameOver.
  */
 import { Clock } from 'three';
 import { Difficulty, GameMode, GameState, MapId, Topics } from '../core/Constants.js';
 import { TankController } from './entities/TankController.js';
+import { CollisionManager, LOCAL_TANK_ID } from './physics/CollisionManager.js';
 
 const VALID_MODES = new Set(Object.values(GameMode));
 const VALID_DIFFICULTIES = new Set(Object.values(Difficulty));
 const VALID_MAP_IDS = new Set(Object.values(MapId));
+
+const MAX_HP = 100;
+const SHOT_DAMAGE = 18;
 
 export class GameManager {
   /**
@@ -27,6 +31,9 @@ export class GameManager {
     this.lastDt = 0;
     this.playingTicks = 0;
     this.tank = new TankController();
+    this.collision = new CollisionManager();
+    this.maxHp = MAX_HP;
+    this.hp = MAX_HP;
 
     /** @type {number | null} */
     this._raf = null;
@@ -64,7 +71,11 @@ export class GameManager {
     this.simElapsed = 0;
     this.lastDt = 0;
     this.playingTicks = 0;
-    this.tank.reset(0, 6, Math.PI);
+    this.hp = this.maxHp;
+    const volumes = this.collision.loadMap(payload.mapId);
+    const spawn = volumes.spawn ?? [0, 6];
+    this.tank.reset(spawn[0], spawn[1], Math.PI);
+    this.sceneManager?.clearProjectiles();
     this.sceneManager?.spawnLocalTank();
     this._syncVisuals();
     this.cameraManager?.snapFollow();
@@ -102,6 +113,8 @@ export class GameManager {
     this.state = GameState.GAME_OVER;
     this.clock.stop();
     this.tank.setChassisInput(0, 0);
+    this.collision.clear();
+    this.sceneManager?.clearProjectiles();
     this.sceneManager?.despawnLocalTank();
     this.bus.emit(Topics.GAME_OVER, {
       winner: String(result?.winner ?? ''),
@@ -126,12 +139,13 @@ export class GameManager {
     this.tank.setTurretInput(turretSteer);
   }
 
-  /** Left-click fire. Emits PLAYER_FIRE when Playing and cooldown allows. */
+  /** Spacebar fire. Emits PLAYER_FIRE when Playing and cooldown allows. */
   tryFire() {
     if (this.state !== GameState.PLAYING) return false;
     const shot = this.tank.tryFire();
     if (!shot) return false;
     this.bus.emit(Topics.PLAYER_FIRE, shot);
+    this.collision.spawnProjectile(shot, LOCAL_TANK_ID);
     return true;
   }
 
@@ -139,8 +153,40 @@ export class GameManager {
    * @param {number} dt seconds from THREE.Clock.getDelta()
    */
   update(dt) {
+    const prevX = this.tank.x;
+    const prevZ = this.tank.z;
     this.tank.update(dt);
+
+    const moved = this.collision.resolveTankMove(prevX, prevZ, this.tank.x, this.tank.z);
+    this.tank.x = moved.x;
+    this.tank.z = moved.z;
+
+    this.collision.updateProjectiles(
+      dt,
+      { id: LOCAL_TANK_ID, x: this.tank.x, z: this.tank.z },
+      (entityId) => this._damage(entityId, SHOT_DAMAGE),
+    );
+
+    if (this.state !== GameState.PLAYING) return;
     this._syncVisuals();
+  }
+
+  /**
+   * @param {string} entityId
+   * @param {number} amount
+   */
+  _damage(entityId, amount) {
+    if (this.state !== GameState.PLAYING) return;
+    if (entityId !== LOCAL_TANK_ID) return;
+    this.hp = Math.max(0, this.hp - amount);
+    this.bus.emit(Topics.TANK_DAMAGED, {
+      entityId,
+      currentHp: this.hp,
+      maxHp: this.maxHp,
+    });
+    if (this.hp <= 0) {
+      this.endMatch({ winner: 'arena', score: 0 });
+    }
   }
 
   /** JSON-serializable snapshot for DEV verification. No Three.js objects. */
@@ -156,6 +202,10 @@ export class GameManager {
       tank: pose,
       fireCount: this.tank.fireCount,
       fireCooldown: this.tank.fireCooldown,
+      hp: this.hp,
+      maxHp: this.maxHp,
+      obstacleCount: this.collision.obstacles.length,
+      projectileCount: this.collision.projectiles.length,
     };
   }
 
@@ -165,6 +215,8 @@ export class GameManager {
       this._raf = null;
     }
     this.clock.stop();
+    this.collision.clear();
+    this.sceneManager?.clearProjectiles();
     this.sceneManager?.despawnLocalTank();
     for (const off of this._unsubs) {
       off();
@@ -178,6 +230,14 @@ export class GameManager {
   _syncVisuals() {
     const pose = this.tank.getPose();
     this.sceneManager?.syncLocalTank(pose);
+    this.sceneManager?.syncProjectiles(
+      this.collision.projectiles.map((p) => ({
+        id: p.id,
+        x: p.x,
+        y: p.y,
+        z: p.z,
+      })),
+    );
     this.cameraManager?.setTarget(pose.x, pose.y, pose.z);
     this.cameraManager?.setFollowYaw(pose.turretRotY);
   }

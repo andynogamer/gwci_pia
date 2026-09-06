@@ -54,6 +54,7 @@ export class UIManager {
       this.playing = true;
       this.paused = false;
       this.activeScreen = 'menu';
+      this.hud.setArmor(100, 100);
       this._applyVisibility();
     });
 
@@ -71,6 +72,11 @@ export class UIManager {
       this.paused = false;
       this.activeScreen = 'menu';
       this._applyVisibility();
+    });
+
+    this.bus.on(Topics.TANK_DAMAGED, (payload) => {
+      if (!payload) return;
+      this.hud.setArmor(Number(payload.currentHp), Number(payload.maxHp) || 100);
     });
 
     window.addEventListener('keydown', (e) => {

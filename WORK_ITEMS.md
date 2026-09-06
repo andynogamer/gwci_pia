@@ -48,7 +48,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-005](#wi-005) | REQ-MAPS | Engine | Three thematic arenas | WI-003 | DONE |
 | [WI-006](#wi-006) | boot | Logic | State machine + `THREE.Clock` game loop | WI-001 | DONE |
 | [WI-007](#wi-007) | — | Logic | Local tank chassis + turret (delta-time) | WI-006, WI-003 | DONE |
-| [WI-008](#wi-008) | REQ-COL-LIGHT | Logic | AABB collision manager (`THREE.Box3`) | WI-007, WI-005 | TODO |
+| [WI-008](#wi-008) | REQ-COL-LIGHT | Logic | AABB collision manager (`THREE.Box3`) | WI-007, WI-005 | DONE |
 | [WI-009](#wi-009) | REQ-AI-PART, REQ-DIFF | Logic | Enemy FOV, LOS raycast, AI FSM, two difficulties | WI-007, WI-008 | TODO |
 | [WI-010](#wi-010) | REQ-AI-PART | Engine | `THREE.Points` muzzle / impact / smoke / explosion | WI-003 | TODO |
 | [WI-011](#wi-011) | REQ-SND-ITM | Logic | BGM + SFX; Shield, Triple Shell, Repair Kit | WI-006 | TODO |
@@ -61,6 +61,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | TODO |
 | [WI-019](#wi-019) | playability | UI + Logic + Engine | Pause hits, spawn facing, headlight, turret-follow cam | WI-007 | DONE |
 | [WI-020](#wi-020) | playability | Logic + Engine + UI | Smoother follow cam; turret on arrow keys | WI-019 | DONE |
+| [WI-021](#wi-021) | playability | Logic + Engine + UI | Spacebar fire; visible shells; HP from bullets only | WI-008 | DONE |
 
 **Next playable vertical slice:** WI-001 → WI-002 + WI-003 + WI-006 (loop + menus + empty scene).
 
@@ -256,7 +257,7 @@ Do not write DOM or CSS. Do not open sockets.
 - **Out of scope:** Cannon/Ammo/Rapier; lighting
 - **Acceptance:** Tanks, projectiles, obstacles, bounds use `THREE.Box3`. Hits publish `TANK_DAMAGED`.
 - **Dispose / pause:** collider map cleared on match end
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
@@ -522,3 +523,25 @@ move the tank SpotLight clear of the barrel, and follow-camera yaw = turretRotY.
 - **Acceptance:** Left/Right arrows yaw the cannon independently of WASD hull. Follow camera eases position and yaw (no snappy orbit). Settings keymap lists arrows. Fire remains left click.
 - **Dispose / pause:** turret input ignored while Paused (loop already frozen)
 - **Status:** DONE
+
+---
+
+### WI-021
+
+- **REQ:** playability (fire feel + HP source)
+- **Agent:** Logic + Engine + UI + Integrator
+- **Scope:** `GameManager.js`, `SceneManager.js`, `main.js`, `Settings.js`
+- **Depends on:** WI-008
+- **Contracts:** none new (`PLAYER_FIRE`, `TANK_DAMAGED` unchanged)
+- **Out of scope:** `THREE.Points` FX (WI-010); enemy tanks (WI-009)
+- **Acceptance:** Space fires. A visible shell follows Logic AABB projectiles. Bumping obstacles/bounds does not change HP. Only projectile hits publish `TANK_DAMAGED`.
+- **Dispose / pause:** shells cleared on match end; paused clock freezes flight
+- **Status:** DONE
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-021 only.
+Spacebar fire. Visible shells synced from Logic. HP only from bullets, not crashes.
+```
+

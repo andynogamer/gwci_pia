@@ -28,4 +28,15 @@ export class Hud {
     this.el = wrap;
     root.appendChild(wrap);
   }
+
+  /**
+   * @param {number} currentHp
+   * @param {number} maxHp
+   */
+  setArmor(currentHp, maxHp) {
+    const fill = this.el?.querySelector('.ui-hud__meter i');
+    if (!fill) return;
+    const pct = maxHp > 0 ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100)) : 0;
+    fill.style.width = `${pct}%`;
+  }
 }
