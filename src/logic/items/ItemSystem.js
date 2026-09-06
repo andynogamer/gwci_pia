@@ -43,6 +43,16 @@ export class ItemSystem {
   }
 
   /**
+   * WI-032 — restore map pickups for a new PVE wave.
+   * Does not clear or reset active buff timers on tanks.
+   */
+  respawnPickups() {
+    for (const p of this.pickups) {
+      p.live = true;
+    }
+  }
+
+  /**
    * @param {string} entityId
    * @param {number} x
    * @param {number} z

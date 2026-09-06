@@ -72,7 +72,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-029](#wi-029) | REQ-MULTI, REQ-MODES | Network + Logic | PVP opposite spawn pads from `ROOM_READY` | WI-027, WI-016 | DONE |
 | [WI-030](#wi-030) | REQ-MULTI | Network + Logic | `MATCH_END` ends the local duel | WI-027, WI-016 | DONE |
 | [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | DONE |
-| [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | TODO |
+| [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | DONE |
 | [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | TODO |
 | [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | TODO |
 | [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | TODO |
@@ -818,7 +818,7 @@ Do not change radar (WI-033). Do not open sockets. No Cannon/Ammo/Rapier.
 - **Out of scope:** HUD CSS; Engine meshes (SceneManager already syncs `livePickups()`); PVP item authority (WI-034)
 - **Acceptance:** In PVE, Shield, Triple Shell, and Repair Kit are **live again at the start of every wave** (including after wave 1). Collecting during intermission does not permanently empty the map. Active buff timers on the player are not reset by a wave respawn. Paused clock still freezes item `dt`. PVP match still spawns once at `GAME_START` (no waves).
 - **Dispose / pause:** `items.clear()` on `GAME_OVER` unchanged
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

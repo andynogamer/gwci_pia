@@ -521,6 +521,9 @@ export class GameManager {
       spawnPoints: spots,
       aliveCount: () => this.enemies.length,
       onVictory: (result) => this.endMatch(result),
+      onWaveStart: () => {
+        this.items.respawnPickups();
+      },
       spawnEnemy: (spot, index) => {
         this._spawnEnemyAt(spot.x, spot.z, index, config, px, pz, difficulty);
       },

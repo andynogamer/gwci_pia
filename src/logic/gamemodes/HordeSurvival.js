@@ -33,6 +33,7 @@ export class HordeSurvival {
    *   spawnEnemy: (spot: { x: number, z: number }, index: number) => void,
    *   aliveCount: () => number,
    *   onVictory: (result: { winner: string, score: number }) => void,
+   *   onWaveStart?: (wave: number) => void,
    * }} hooks
    */
   constructor(hooks) {
@@ -41,6 +42,7 @@ export class HordeSurvival {
     this._spawnEnemy = hooks.spawnEnemy;
     this._aliveCount = hooks.aliveCount;
     this._onVictory = hooks.onVictory;
+    this._onWaveStart = hooks.onWaveStart ?? (() => {});
 
     this.wave = 0;
     this.score = 0;
@@ -141,6 +143,7 @@ export class HordeSurvival {
   _beginWave() {
     this.wave += 1;
     this.phase = 'combat';
+    this._onWaveStart(this.wave);
     const count = enemiesForWave(this.wave, this.difficulty);
     this.pendingSpawns = count;
     const points = this.spawnPoints.length > 0
