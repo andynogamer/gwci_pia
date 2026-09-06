@@ -70,7 +70,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | DONE |
 | [WI-028](#wi-028) | REQ-MODES, REQ-SRV-DB | UI + Network | Network Duel requires signed-in session | WI-026, WI-016 | DONE |
 | [WI-029](#wi-029) | REQ-MULTI, REQ-MODES | Network + Logic | PVP opposite spawn pads from `ROOM_READY` | WI-027, WI-016 | DONE |
-| [WI-030](#wi-030) | REQ-MULTI | Network + Logic | `MATCH_END` ends the local duel | WI-027, WI-016 | TODO |
+| [WI-030](#wi-030) | REQ-MULTI | Network + Logic | `MATCH_END` ends the local duel | WI-027, WI-016 | DONE |
 | [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | TODO |
 | [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | TODO |
 | [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | TODO |
@@ -80,7 +80,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | TODO |
 | [WI-038](#wi-038) | REQ-MODES | Logic | PVP victor leaves Playing via `GAME_OVER` | WI-016, WI-029 | TODO |
 
-**Next playable slice:** Bugfix queue **WI-035 → WI-038** (spawn stuck, game-over label/score, PVP winner stuck). Then **WI-030** (`MATCH_END`).
+**Next playable slice:** Bugfix queue **WI-035 → WI-038** (spawn stuck, game-over label/score, PVP winner stuck).
 
 ---
 
@@ -769,7 +769,7 @@ Do not expand maps. Do not handle MATCH_END. No server physics.
 - **Out of scope:** spawn pads (WI-029); REST scores already POST on `GAME_OVER`
 - **Acceptance:** In a live 1v1, closing one tab (or letting heartbeat timeout) makes the remaining tab leave Playing and show game-over. `reason: room_full` does not start a duel. PVE never listens to this topic.
 - **Dispose / pause:** socket close + match teardown; no leaked RAF
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

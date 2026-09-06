@@ -97,6 +97,9 @@ export class GameManager {
     this._unsubs.push(
       this.bus.on(Topics.ROOM_READY, (payload) => this._onRoomReady(payload)),
     );
+    this._unsubs.push(
+      this.bus.on(Topics.MATCH_END, (payload) => this._onMatchEnd(payload)),
+    );
 
     this._scheduleLoop();
   }
@@ -578,6 +581,26 @@ export class GameManager {
     this.cameraManager?.snapFollow();
     this._syncVisuals();
     this._publishHudState();
+  }
+
+  /**
+   * WI-030 — peer leave / heartbeat / room_full → leave Playing (PVP only).
+   * @param {{ reason?: string }} payload
+   */
+  _onMatchEnd(payload) {
+    if (!this.duel) return;
+    if (this.state !== GameState.PLAYING && this.state !== GameState.PAUSED) return;
+
+    const reason = payload?.reason;
+    if (reason === 'room_full') {
+      // Never treat as a live duel win — abort waiting / join.
+      this.endMatch({ winner: '', score: 0 });
+      return;
+    }
+
+    // Remaining client: opponent left or timed out → forfeit win.
+    const score = Number(this.duel.score) || 0;
+    this.endMatch({ winner: 'player', score });
   }
 
   /**

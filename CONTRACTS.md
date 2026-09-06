@@ -151,6 +151,23 @@ Mirrors WebSocket §B `ROOM_READY` without the `event` discriminator. Join order
 **Publishers:** Agent-Network (WS → bus)  
 **Subscribers:** Agent-Logic (PVP pad snap + face opponent). Ignore outside PVP / not Playing|Paused.
 
+### MATCH_END
+
+Mirrors WebSocket §B `MATCH_END` without the `event` discriminator. Ends the local PVP duel only.
+
+```json
+{
+  "reason": "opponent_left" | "heartbeat_timeout" | "room_full"
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `reason` | string | Why the room closed |
+
+**Publishers:** Agent-Network (WS → bus)  
+**Subscribers:** Agent-Logic (PVP only → `GAME_OVER`). Ignore in PVE. `room_full` aborts before a live duel; leave/timeout ends an active duel.
+
 ### CLIENT_STATE_UPDATE
 
 Same numeric fields as WebSocket §B (`id`, `timestamp`, `pos`, `rotY`, `turretRotY`, `hp`). EventBus payloads omit the WS `event` discriminator.

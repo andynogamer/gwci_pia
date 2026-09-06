@@ -281,6 +281,9 @@ export class NetworkClient {
         break;
       case 'MATCH_END':
         this.roomReady = false;
+        this.bus.emit(Topics.MATCH_END, {
+          reason: normalizeMatchEndReason(msg.reason),
+        });
         this.disconnect();
         break;
       default:
@@ -360,4 +363,15 @@ function createPlayerId() {
     return crypto.randomUUID();
   }
   return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * @param {unknown} reason
+ * @returns {'opponent_left' | 'heartbeat_timeout' | 'room_full'}
+ */
+function normalizeMatchEndReason(reason) {
+  if (reason === 'heartbeat_timeout' || reason === 'room_full' || reason === 'opponent_left') {
+    return reason;
+  }
+  return 'opponent_left';
 }
