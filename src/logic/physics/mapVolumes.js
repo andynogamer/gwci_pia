@@ -1,6 +1,7 @@
 /**
  * Agent-Logic — AABB volumes for REQ-MAPS arenas (plain numbers, no meshes).
  * Envelopes for rotated boxes so CollisionManager can use THREE.Box3 only.
+ * WI-031: walkable half-extent ≥ 34 (was 22).
  */
 
 function envelope(x, y, z, w, h, d, ry = 0) {
@@ -15,12 +16,13 @@ function envelope(x, y, z, w, h, d, ry = 0) {
   };
 }
 
-const HALF = 22;
+/** Walkable arena half-extent (XZ). Must stay in sync with Engine ground size. */
+export const ARENA_HALF = 34;
 
 function arenaBounds() {
   return {
-    min: [-HALF, -1, -HALF],
-    max: [HALF, 8, HALF],
+    min: [-ARENA_HALF, -1, -ARENA_HALF],
+    max: [ARENA_HALF, 8, ARENA_HALF],
   };
 }
 
@@ -34,6 +36,14 @@ function desertObstacles() {
     [-10, 5],
     [4, 8],
     [-2, 10],
+    // Outer ring (WI-031)
+    [-24, -20],
+    [22, -24],
+    [-28, 8],
+    [26, 14],
+    [-18, 26],
+    [20, 28],
+    [0, -28],
   ];
   for (const [x, z] of pillars) {
     const h = 2.2 + ((x + z) % 3) * 0.4;
@@ -43,6 +53,10 @@ function desertObstacles() {
   obstacles.push(envelope(11, 0.8, 2, 5, 1.6, 0.65, -0.9));
   obstacles.push(envelope(-14, 0.9, -2, 6, 1.8, 0.6, 1.2));
   obstacles.push(envelope(2, 0.45, -2, 5, 0.9, 1.1, 0.4));
+  // Outer ruin walls
+  obstacles.push(envelope(-22, 1.0, 18, 9, 2.0, 0.7, 0.4));
+  obstacles.push(envelope(24, 1.05, -8, 7, 2.1, 0.65, -0.6));
+  obstacles.push(envelope(8, 0.95, 26, 10, 1.9, 0.7, 0.1));
   return obstacles;
 }
 
@@ -55,6 +69,13 @@ function industrialObstacles() {
     { x: 10, z: 4, w: 6, h: 2.4, d: 2.6, ry: 0.2 },
     { x: -12, z: 8, w: 5.5, h: 2.2, d: 2.5, ry: -0.3 },
     { x: 0, z: 12, w: 8, h: 2.5, d: 2.6, ry: 0 },
+    // Outer corridors
+    { x: -26, z: -18, w: 7, h: 2.5, d: 2.7, ry: 0.15 },
+    { x: 24, z: -22, w: 6.5, h: 2.4, d: 2.6, ry: Math.PI / 2 },
+    { x: -22, z: 24, w: 8, h: 2.5, d: 2.6, ry: -0.2 },
+    { x: 26, z: 16, w: 6, h: 2.3, d: 2.5, ry: 0.4 },
+    { x: 0, z: -28, w: 10, h: 2.4, d: 2.6, ry: 0 },
+    { x: 28, z: 0, w: 2.6, h: 2.5, d: 8, ry: 0 },
   ];
   for (const c of containers) {
     obstacles.push(envelope(c.x, c.h / 2, c.z, c.w, c.h, c.d, c.ry));
@@ -69,12 +90,21 @@ function lunarObstacles() {
   obstacles.push(envelope(-4, 1.75, 2, 3.5, 4.4, 3.5));
   obstacles.push(envelope(5, 1.5, -3, 4.2, 3.6, 3.6));
   obstacles.push(envelope(2, 1.1, 8, 3.5, 2.2, 3.5));
+  // Outer habitat / crates
+  obstacles.push(envelope(-26, 1.4, -14, 4.0, 2.8, 4.0));
+  obstacles.push(envelope(24, 1.3, 20, 3.8, 2.6, 3.8));
+  obstacles.push(envelope(-18, 1.2, 26, 3.5, 2.4, 3.5));
   const rocks = [
     [-14, 0.4, 4],
     [10, 0.5, -12],
     [-3, 0.35, -8],
     [16, 0.45, -2],
     [-16, 0.5, -10],
+    [-28, 0.45, 6],
+    [28, 0.5, -16],
+    [12, 0.4, 28],
+    [-8, 0.45, -28],
+    [22, 0.5, 8],
   ];
   for (const [x, y, z] of rocks) {
     obstacles.push(envelope(x, y, z, 1.6, 1.2, 1.6));
@@ -84,13 +114,13 @@ function lunarObstacles() {
 
 const BY_MAP = {
   1: {
-    spawn: [0, 6],
-    // South corners — longer approach to player spawn; less opening LOS than mid-south.
+    spawn: [0, 8],
+    // Far south — WI-023 Recruit grace / approach distance.
     enemies: [
-      [18, -18, 0],
-      [-18, -18, 0],
+      [26, -28, 0],
+      [-26, -28, 0],
     ],
-    // WI-029 — opposite duel pads (≥ 18 apart). Index 0 = pad A, 1 = pad B.
+    // WI-029 — opposite duel pads (≥ 18 apart), inside ARENA_HALF.
     pvpPads: [
       [-16, 0],
       [16, 0],
@@ -98,16 +128,16 @@ const BY_MAP = {
     bounds: arenaBounds(),
     obstacles: desertObstacles(),
     items: [
-      { type: 'SHIELD', x: 14, z: 6 },
-      { type: 'TRIPLE', x: -14, z: 6 },
-      { type: 'REPAIR', x: 0, z: -16 },
+      { type: 'SHIELD', x: 22, z: 10 },
+      { type: 'TRIPLE', x: -22, z: 10 },
+      { type: 'REPAIR', x: 0, z: -24 },
     ],
   },
   2: {
-    spawn: [0, 6],
+    spawn: [0, 8],
     enemies: [
-      [16, -14, 0],
-      [-16, 0, Math.PI / 2],
+      [28, -24, 0],
+      [-28, 4, Math.PI / 2],
     ],
     pvpPads: [
       [-16, 10],
@@ -116,16 +146,16 @@ const BY_MAP = {
     bounds: arenaBounds(),
     obstacles: industrialObstacles(),
     items: [
-      { type: 'SHIELD', x: -3, z: 4 },
-      { type: 'TRIPLE', x: 14, z: -2 },
-      { type: 'REPAIR', x: 6, z: 10 },
+      { type: 'SHIELD', x: -6, z: 6 },
+      { type: 'TRIPLE', x: 22, z: -4 },
+      { type: 'REPAIR', x: 8, z: 22 },
     ],
   },
   3: {
-    spawn: [0, 16],
+    spawn: [0, 24],
     enemies: [
-      [16, 8, 0],
-      [-16, 8, 0],
+      [26, 10, 0],
+      [-26, 10, 0],
     ],
     pvpPads: [
       [-16, -6],
@@ -134,9 +164,9 @@ const BY_MAP = {
     bounds: arenaBounds(),
     obstacles: lunarObstacles(),
     items: [
-      { type: 'SHIELD', x: 10, z: 14 },
-      { type: 'TRIPLE', x: -10, z: 14 },
-      { type: 'REPAIR', x: 0, z: -6 },
+      { type: 'SHIELD', x: 18, z: 22 },
+      { type: 'TRIPLE', x: -18, z: 22 },
+      { type: 'REPAIR', x: 0, z: -12 },
     ],
   },
 };

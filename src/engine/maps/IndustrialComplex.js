@@ -1,14 +1,18 @@
 /**
  * REQ-MAPS map 2 — Industrial Complex (metal obstacles, nocturnal lighting).
+ * WI-031: ground covers walkable half ≥ 34; fence follows perimeter.
  */
 import * as THREE from 'three';
 import { makeGround, makeMesh } from './mapKit.js';
 
+const GROUND = 70;
+const FENCE = 34;
+
 export const INDUSTRIAL_THEME = Object.freeze({
   background: 0x07090e,
   fog: 0x0c1018,
-  fogNear: 22,
-  fogFar: 70,
+  fogNear: 32,
+  fogFar: 100,
   ambient: 0x6a7a98,
   ambientIntensity: 0.42,
   spot: 0xb8d4ff,
@@ -26,7 +30,7 @@ export function buildIndustrialComplex() {
     roughness: 0.85,
     metalness: 0.25,
   });
-  root.add(makeGround(48, asphalt));
+  root.add(makeGround(GROUND, asphalt));
 
   const metal = new THREE.MeshStandardMaterial({
     color: 0x5c6674,
@@ -46,7 +50,6 @@ export function buildIndustrialComplex() {
     metalness: 0.3,
   });
 
-  // Shipping-container stacks — corridor maze
   const containers = [
     { x: -8, z: -6, w: 6, h: 2.4, d: 2.6, ry: 0 },
     { x: -8, z: -2.8, w: 6, h: 2.4, d: 2.6, ry: 0 },
@@ -54,6 +57,12 @@ export function buildIndustrialComplex() {
     { x: 10, z: 4, w: 6, h: 2.4, d: 2.6, ry: 0.2 },
     { x: -12, z: 8, w: 5.5, h: 2.2, d: 2.5, ry: -0.3 },
     { x: 0, z: 12, w: 8, h: 2.5, d: 2.6, ry: 0 },
+    { x: -26, z: -18, w: 7, h: 2.5, d: 2.7, ry: 0.15 },
+    { x: 24, z: -22, w: 6.5, h: 2.4, d: 2.6, ry: Math.PI / 2 },
+    { x: -22, z: 24, w: 8, h: 2.5, d: 2.6, ry: -0.2 },
+    { x: 26, z: 16, w: 6, h: 2.3, d: 2.5, ry: 0.4 },
+    { x: 0, z: -28, w: 10, h: 2.4, d: 2.6, ry: 0 },
+    { x: 28, z: 0, w: 2.6, h: 2.5, d: 8, ry: 0 },
   ];
   for (const c of containers) {
     root.add(
@@ -66,7 +75,6 @@ export function buildIndustrialComplex() {
     );
   }
 
-  // Double-stack crate
   root.add(
     makeMesh(new THREE.BoxGeometry(3, 2, 3), rust, {
       x: 3,
@@ -82,7 +90,6 @@ export function buildIndustrialComplex() {
     }),
   );
 
-  // Pipe runs
   root.add(
     makeMesh(new THREE.CylinderGeometry(0.35, 0.35, 14, 10), metal, {
       x: -2,
@@ -100,8 +107,16 @@ export function buildIndustrialComplex() {
       rx: Math.PI / 2,
     }),
   );
+  root.add(
+    makeMesh(new THREE.CylinderGeometry(0.3, 0.3, 18, 10), metal, {
+      x: -18,
+      y: 3.0,
+      z: -10,
+      rz: Math.PI / 2,
+      ry: -0.3,
+    }),
+  );
 
-  // Caution / neon strips for nocturnal read
   root.add(
     makeMesh(new THREE.BoxGeometry(10, 0.12, 0.35), neon, {
       x: -4,
@@ -118,15 +133,22 @@ export function buildIndustrialComplex() {
       cast: false,
     }),
   );
+  root.add(
+    makeMesh(new THREE.BoxGeometry(16, 0.12, 0.35), neon, {
+      x: 8,
+      y: 0.08,
+      z: -18,
+      cast: false,
+    }),
+  );
 
-  // Perimeter fence posts (shared geo — disposed once with the map tree)
   const postGeo = new THREE.BoxGeometry(0.25, 2.8, 0.25);
-  for (let i = -18; i <= 18; i += 6) {
+  for (let i = -FENCE; i <= FENCE; i += 6) {
     root.add(
       makeMesh(postGeo, metal, {
         x: i,
         y: 1.4,
-        z: -22,
+        z: -FENCE,
         cast: false,
       }),
     );
@@ -134,7 +156,23 @@ export function buildIndustrialComplex() {
       makeMesh(postGeo, metal, {
         x: i,
         y: 1.4,
-        z: 22,
+        z: FENCE,
+        cast: false,
+      }),
+    );
+    root.add(
+      makeMesh(postGeo, metal, {
+        x: -FENCE,
+        y: 1.4,
+        z: i,
+        cast: false,
+      }),
+    );
+    root.add(
+      makeMesh(postGeo, metal, {
+        x: FENCE,
+        y: 1.4,
+        z: i,
         cast: false,
       }),
     );

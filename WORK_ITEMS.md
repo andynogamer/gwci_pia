@@ -71,7 +71,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-028](#wi-028) | REQ-MODES, REQ-SRV-DB | UI + Network | Network Duel requires signed-in session | WI-026, WI-016 | DONE |
 | [WI-029](#wi-029) | REQ-MULTI, REQ-MODES | Network + Logic | PVP opposite spawn pads from `ROOM_READY` | WI-027, WI-016 | DONE |
 | [WI-030](#wi-030) | REQ-MULTI | Network + Logic | `MATCH_END` ends the local duel | WI-027, WI-016 | DONE |
-| [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | TODO |
+| [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | DONE |
 | [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | TODO |
 | [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | TODO |
 | [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | TODO |
@@ -795,7 +795,7 @@ Emit MATCH_END on EventBus; Logic endMatch for PVP. No new WS fields. No AABB on
   - Fog / lunar shadow camera / industrial fence posts follow the new perimeter.
   - Unload still `.dispose()`s new geometries/materials. PVE wave-1 pads stay far from player spawn (WI-023 grace still holds on Recruit Desert).
 - **Dispose / pause:** full map teardown on unload
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
