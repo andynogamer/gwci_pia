@@ -6,6 +6,7 @@ import { DualLights } from './lights/DualLights.js';
 import { getMapEntry } from './maps/MapRegistry.js';
 import { LocalTankView } from './tanks/LocalTankView.js';
 import { ParticleSystem } from './particles/ParticleSystem.js';
+import { ShieldFx } from './shaders/ShieldFx.js';
 
 export class SceneManager {
   constructor() {
@@ -46,6 +47,9 @@ export class SceneManager {
 
     /** @type {ParticleSystem | null} */
     this.particles = null;
+
+    /** @type {ShieldFx | null} */
+    this.shieldFx = null;
   }
 
   /**
@@ -175,6 +179,8 @@ export class SceneManager {
     this.scene.add(view.root);
     this._localTank = view;
     this.lights?.attachToTank(view.turretPivot);
+    this._ensureShieldFx();
+    this.shieldFx?.attachToTank(view.root);
   }
 
   /**
@@ -186,9 +192,35 @@ export class SceneManager {
 
   despawnLocalTank() {
     if (!this._localTank) return;
+    this.shieldFx?.deactivate();
+    this.shieldFx?.detach();
     this.lights?.detachFromTank();
     this._localTank.dispose();
     this._localTank = null;
+  }
+
+  _ensureShieldFx() {
+    if (!this.shieldFx) {
+      this.shieldFx = new ShieldFx();
+    }
+  }
+
+  /**
+   * FX only — show/hide shield shaders from ITEM_COLLECTED.
+   * @param {{ type?: string, entityId?: string }} payload
+   */
+  onItemCollected(payload) {
+    if (payload?.entityId !== 'local') return;
+    this._ensureShieldFx();
+    if (this._localTank) {
+      this.shieldFx.attachToTank(this._localTank.root);
+    }
+    if (payload?.type === 'SHIELD') {
+      this.shieldFx.activate();
+    } else if (payload?.type === 'TRIPLE') {
+      // Logic replaces active power-up; hide shield visual.
+      this.shieldFx.deactivate();
+    }
   }
 
   /**
@@ -231,7 +263,7 @@ export class SceneManager {
   }
 
   /**
-   * Logic pickups as colored markers (no shield shader — WI-017).
+   * Logic pickups as colored markers.
    * @param {Array<{ id: string, type: string, x: number, y: number, z: number }>} list
    */
   syncPickups(list) {
@@ -365,6 +397,7 @@ export class SceneManager {
    */
   update(dt) {
     this.particles?.update(dt);
+    this.shieldFx?.update(dt);
   }
 
   /**
@@ -376,6 +409,11 @@ export class SceneManager {
     this._disposePickupAssets();
     this._disposeShellAssets();
     this.unloadMap();
+
+    if (this.shieldFx) {
+      this.shieldFx.dispose();
+      this.shieldFx = null;
+    }
 
     if (this.particles) {
       this.particles.dispose();

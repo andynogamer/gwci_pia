@@ -3,7 +3,7 @@
  * No DOM besides the canvas element passed in. No gameplay / network.
  */
 import * as THREE from 'three';
-import { Topics } from '../core/Constants.js';
+import { Topics, ItemType } from '../core/Constants.js';
 import { SceneManager } from './SceneManager.js';
 import { CameraManager } from './CameraManager.js';
 
@@ -63,6 +63,9 @@ export class Renderer {
     this._unsubs.push(
       this.bus.on(Topics.TANK_DAMAGED, (payload) => this._onTankDamaged(payload)),
     );
+    this._unsubs.push(
+      this.bus.on(Topics.ITEM_COLLECTED, (payload) => this._onItemCollected(payload)),
+    );
   }
 
   /** Begin the requestAnimationFrame loop (idempotent). */
@@ -88,6 +91,7 @@ export class Renderer {
       this.sceneManager.preparePlaceholder();
     }
     this.sceneManager.particles?.clear();
+    this.sceneManager.shieldFx?.deactivate();
     this.paused = false;
     if (!this.clock.running) {
       this.clock.start();
@@ -129,6 +133,22 @@ export class Renderer {
       this.sceneManager.particles?.spawnImpact(origin);
       this.sceneManager.particles?.spawnSmoke(origin);
     }
+  }
+
+  /**
+   * FX only — shield / ground ShaderMaterial toggle.
+   * @param {{ type?: string, entityId?: string }} payload
+   */
+  _onItemCollected(payload) {
+    if (!payload?.type) return;
+    if (
+      payload.type !== ItemType.SHIELD &&
+      payload.type !== ItemType.TRIPLE &&
+      payload.type !== ItemType.REPAIR
+    ) {
+      return;
+    }
+    this.sceneManager.onItemCollected(payload);
   }
 
   /**

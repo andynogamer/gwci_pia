@@ -45,6 +45,7 @@ if (import.meta.env.DEV) {
     eventBus,
     get lights() { return sceneManager.lights; },
     get particles() { return sceneManager.particles; },
+    get shieldFx() { return sceneManager.shieldFx; },
   };
   window.__mtaLogic = { game };
 }

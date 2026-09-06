@@ -57,7 +57,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-014](#wi-014) | REQ-UI, REQ-SRV-DB | UI | Settings `localStorage`; highscores table from API | WI-002, WI-013 | DONE |
 | [WI-015](#wi-015) | REQ-MULTI | Network | WebSocket 1v1 rooms + `CLIENT_STATE_UPDATE` | WI-007, WI-013 | DONE |
 | [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | DONE |
-| [WI-017](#wi-017) | REQ-COL-LIGHT | Engine | Shield / ground `ShaderMaterial` | WI-010, WI-011 | TODO |
+| [WI-017](#wi-017) | REQ-COL-LIGHT | Engine | Shield / ground `ShaderMaterial` | WI-010, WI-011 | DONE |
 | [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | TODO |
 | [WI-019](#wi-019) | playability | UI + Logic + Engine | Pause hits, spawn facing, headlight, turret-follow cam | WI-007 | DONE |
 | [WI-020](#wi-020) | playability | Logic + Engine + UI | Smoother follow cam; turret on arrow keys | WI-019 | DONE |
@@ -457,7 +457,7 @@ Do not open WebSockets. Do not edit server/. Apply remote pose/fire from EventBu
 - **Out of scope:** item timers (logic)
 - **Acceptance:** `ShaderMaterial` energy shield + ground effect. `uTime` scaled by `dt`. Disposed on unload.
 - **Dispose / pause:** mandatory
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
