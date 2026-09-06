@@ -3,6 +3,7 @@
  * Consumes EventBus CLIENT_STATE_UPDATE / ROOM_READY / remote PLAYER_FIRE — no WebSockets.
  * WI-029: pad A/B from ROOM_READY.players[] index; hold control until ready.
  * WI-036: GAME_OVER.winner is registered username, never player UUID.
+ * WI-038: victory is claimed by GameManager via takeVictory() (local kill or remote hp≤0).
  */
 
 const WIN_SCORE_BASE = 1000;
@@ -20,14 +21,12 @@ export class NetworkDuel {
    *   publishLocalState: (payload: {
    *     id: string, timestamp: number, pos: number[], rotY: number, turretRotY: number, hp: number, username: string
    *   }) => void,
-   *   onVictory: (result: { winner: string, score: number }) => void,
    * }} hooks
    */
   constructor(hooks) {
     this.localId = String(hooks.localId || 'local');
     this.localUsername = String(hooks.localUsername || '').trim();
     this._publishLocalState = hooks.publishLocalState;
-    this._onVictory = hooks.onVictory;
     const pads = hooks.pads ?? DEFAULT_PADS;
     /** @type {[[number, number], [number, number]]} */
     this.pads = [
@@ -127,17 +126,21 @@ export class NetworkDuel {
   /**
    * Apply opponent telemetry from EventBus (remote peer only).
    * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number, username?: string }} payload
-   * @returns {boolean} true if this update belongs to the remote peer
+   * @returns {{ applied: boolean, victory: boolean }}
    */
   applyRemoteState(payload) {
-    if (!this.roomReady || this.phase !== 'active' || !payload) return false;
+    if (!this.roomReady || this.phase !== 'active' || !payload) {
+      return { applied: false, victory: false };
+    }
     const id = payload.id != null ? String(payload.id) : '';
-    if (!id || id === this.localId) return false;
-    if (!Array.isArray(payload.pos) || payload.pos.length !== 3) return false;
+    if (!id || id === this.localId) return { applied: false, victory: false };
+    if (!Array.isArray(payload.pos) || payload.pos.length !== 3) {
+      return { applied: false, victory: false };
+    }
 
     const timestamp = Number(payload.timestamp) || 0;
     if (this.remote && timestamp > 0 && timestamp < this.remote.timestamp) {
-      return false;
+      return { applied: false, victory: false };
     }
 
     this.remoteId = id;
@@ -153,10 +156,10 @@ export class NetworkDuel {
       hp: Math.max(0, Number(payload.hp) || 0),
     };
 
-    if (this.remote.hp <= 0) {
-      this._finishVictory();
-    }
-    return true;
+    return {
+      applied: true,
+      victory: this.remote.hp <= 0,
+    };
   }
 
   /**
@@ -167,6 +170,20 @@ export class NetworkDuel {
     this.phase = 'over';
     return {
       winner: this.remoteUsername || '',
+      score: this.score,
+    };
+  }
+
+  /**
+   * WI-038 — claim local victory once (remote dead or local kill confirm).
+   * @returns {{ winner: string, score: number } | null}
+   */
+  takeVictory() {
+    if (this.phase !== 'active') return null;
+    this.phase = 'over';
+    this.score = WIN_SCORE_BASE;
+    return {
+      winner: this.localUsername || '',
       score: this.score,
     };
   }
@@ -195,12 +212,5 @@ export class NetworkDuel {
       roomReady: this.roomReady,
       pads: this.pads,
     };
-  }
-
-  _finishVictory() {
-    if (this.phase !== 'active') return;
-    this.phase = 'over';
-    this.score = WIN_SCORE_BASE;
-    this._onVictory({ winner: this.localUsername || '', score: this.score });
   }
 }

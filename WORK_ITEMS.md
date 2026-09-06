@@ -78,9 +78,9 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | DONE |
 | [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | DONE |
 | [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | DONE |
-| [WI-038](#wi-038) | REQ-MODES | Logic | PVP victor leaves Playing via `GAME_OVER` | WI-016, WI-029 | TODO |
+| [WI-038](#wi-038) | REQ-MODES | Logic | PVP victor leaves Playing via `GAME_OVER` | WI-016, WI-029 | DONE |
 
-**Next playable slice:** Bugfix queue **WI-035 → WI-038** (spawn stuck, game-over label/score, PVP winner stuck).
+**Next playable slice:** Bugfix queue **WI-035 → WI-038** complete.
 
 ---
 
@@ -962,7 +962,7 @@ Do not import three. Do not edit Logic/Network. Rely on WI-036 winner strings.
 - **Out of scope:** `MATCH_END` / disconnect path (WI-030); UI overlay markup (WI-037); spawn pads (WI-035)
 - **Acceptance:** When the local client detects a PVP win (opponent HP ≤ 0 via `CLIENT_STATE_UPDATE` or equivalent duel rule), it **must** call `endMatch` so state becomes `GAME_OVER`, clock stops, tanks/projectiles tear down, and `GAME_OVER` is emitted once. Winner does not keep driving / firing in Playing. Loser’s existing defeat → `endMatch` still works. No double-emit loops.
 - **Dispose / pause:** full match teardown on victory (same as defeat)
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

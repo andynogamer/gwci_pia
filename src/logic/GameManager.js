@@ -306,8 +306,17 @@ export class GameManager {
     if (this.state !== GameState.PLAYING) return;
     if (this.items.hasShield(entityId)) return;
 
-    // PVP: opponent HP is authoritative from remote CLIENT_STATE_UPDATE only.
+    // WI-038: speculative local damage on opponent AABB so the killer can win
+    // even if the loser's final hp:0 state never arrives before disconnect.
     if (this.duel && this.opponent && entityId === this.opponent.id) {
+      this.opponent.hp = Math.max(0, this.opponent.hp - amount);
+      if (this.duel.remote) this.duel.remote.hp = this.opponent.hp;
+      this.bus.emit(Topics.TANK_DAMAGED, {
+        entityId,
+        currentHp: this.opponent.hp,
+        maxHp: this.opponent.maxHp,
+      });
+      if (this.opponent.hp <= 0) this._endPvpVictory();
       return;
     }
 
@@ -320,6 +329,7 @@ export class GameManager {
       });
       if (this.hp <= 0) {
         this.audio.playSfx('explosion');
+        if (this.duel) this._publishPvpDeathState();
         const defeat =
           this.horde?.defeatResult() ??
           this.duel?.defeatResult() ??
@@ -556,10 +566,6 @@ export class GameManager {
       publishLocalState: (payload) => {
         this.bus.emit(Topics.CLIENT_STATE_UPDATE, payload);
       },
-      onVictory: (result) => {
-        this.audio.playSfx('explosion');
-        this.endMatch(result);
-      },
     });
     this.duel.start();
     // Hold at PVE spawn origin until ROOM_READY assigns opposite pads (no wander).
@@ -700,26 +706,53 @@ export class GameManager {
   }
 
   /**
+   * WI-038 — local claim of PVP win (idempotent via NetworkDuel.takeVictory).
+   */
+  _endPvpVictory() {
+    if (!this.duel) return;
+    if (this.state !== GameState.PLAYING && this.state !== GameState.PAUSED) return;
+    const result = this.duel.takeVictory();
+    if (!result) return;
+    this.audio.playSfx('explosion');
+    this.endMatch(result);
+  }
+
+  /** Publish one last hp:0 frame so the opponent can resolve victory if still connected. */
+  _publishPvpDeathState() {
+    if (!this.duel) return;
+    this.bus.emit(Topics.CLIENT_STATE_UPDATE, {
+      id: this.duel.localId,
+      timestamp: Date.now(),
+      pos: [this.tank.x, this.tank.y ?? 0, this.tank.z],
+      rotY: this.tank.rotY,
+      turretRotY: this.tank.turretRotY,
+      hp: 0,
+      username: this.duel.localUsername,
+    });
+  }
+
+  /**
    * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number }} payload
    */
   _onClientState(payload) {
     if (!this.duel || this.state !== GameState.PLAYING && this.state !== GameState.PAUSED) {
       return;
     }
-    if (!this.duel.applyRemoteState(payload)) return;
+    const res = this.duel.applyRemoteState(payload);
+    if (!res.applied) return;
     const r = this.duel.remote;
     if (!r) return;
     const prevHp = this.opponent?.hp;
     this._ensureOpponent(r.id, r.pos[0], r.pos[2]);
     this._syncOpponentBody();
-    if (!this.opponent || !Number.isFinite(prevHp) || this.opponent.hp === prevHp) {
-      return;
+    if (this.opponent && Number.isFinite(prevHp) && this.opponent.hp !== prevHp) {
+      this.bus.emit(Topics.TANK_DAMAGED, {
+        entityId: this.opponent.id,
+        currentHp: this.opponent.hp,
+        maxHp: this.maxHp,
+      });
     }
-    this.bus.emit(Topics.TANK_DAMAGED, {
-      entityId: this.opponent.id,
-      currentHp: this.opponent.hp,
-      maxHp: this.maxHp,
-    });
+    if (res.victory) this._endPvpVictory();
   }
 
   /**
