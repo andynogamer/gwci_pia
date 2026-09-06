@@ -53,7 +53,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-010](#wi-010) | REQ-AI-PART | Engine | `THREE.Points` muzzle / impact / smoke / explosion | WI-003 | DONE |
 | [WI-011](#wi-011) | REQ-SND-ITM | Logic | BGM + SFX; Shield, Triple Shell, Repair Kit | WI-006 | DONE |
 | [WI-012](#wi-012) | REQ-MODES | Logic | Horde Survival (PVE waves) | WI-009, WI-011 | DONE |
-| [WI-013](#wi-013) | REQ-SRV-DB | Network | MySQL schema, auth + scores REST | WI-001 | TODO |
+| [WI-013](#wi-013) | REQ-SRV-DB | Network | MySQL schema, auth + scores REST | WI-001 | DONE |
 | [WI-014](#wi-014) | REQ-UI, REQ-SRV-DB | UI | Settings `localStorage`; highscores table from API | WI-002, WI-013 | TODO |
 | [WI-015](#wi-015) | REQ-MULTI | Network | WebSocket 1v1 rooms + `CLIENT_STATE_UPDATE` | WI-007, WI-013 | TODO |
 | [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | TODO |
@@ -368,7 +368,7 @@ No network code. Publish GAME_OVER per CONTRACTS.md.
 - **Out of scope:** Three.js, physics, HTML UI
 - **Acceptance:** Parameterized MySQL. Register/login. Bearer POST scores. GET top scores. Passwords hashed.
 - **Dispose / pause:** n/a
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

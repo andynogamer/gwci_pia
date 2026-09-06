@@ -1,6 +1,7 @@
 /**
  * Agent-Network — HTTP + WebSocket entry. No rendering, no physics.
  */
+import './config/env.js';
 import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
