@@ -31,6 +31,18 @@ Agent-Logic still simulates the local tank. You do not “own physics” on the 
 
 Network Duel (`GAME_START.mode === "PVP"`) requires a Bearer token (WI-028). Do not `joinRoom` while signed out; UI must also block Deploy for guests.
 
+## PVP room id (WI-027)
+
+Both clients must Deploy **Network Duel** with the **same arena**:
+
+| Menu arena | `mapId` | WebSocket `roomId` |
+| --- | --- | --- |
+| Desert Dunes | 1 | `pvp-map-1` |
+| Industrial Complex | 2 | `pvp-map-2` |
+| Lunar Station | 3 | `pvp-map-3` |
+
+Helper: `roomIdForMap(mapId)` in `NetworkClient.js`. Dev WS URL uses `ws://localhost:3001/ws` (not Vite’s HMR proxy).
+
 ## Auth
 
 Store the bearer token where UI/session agrees (prefer handing token to UI `localStorage` via a bus topic only if that topic is contracted). Until then, keep token inside NetworkClient and expose `getToken()` for score POST after `GAME_OVER`.

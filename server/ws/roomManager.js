@@ -1,10 +1,13 @@
 /**
- * Agent-Network — 1v1 rooms, handshake, heartbeat, broadcast.
+ * Agent-Network — 1v1 rooms, handshake, heartbeat, broadcast (WI-015 / WI-027).
  * Does not evaluate collisions or damage. CONTRACTS.md §B only.
+ *
+ * Room id from the client menu: `pvp-map-{mapId}` where mapId is 1|2|3
+ * (Desert / Industrial / Lunar). Both Chrome tabs must Deploy the same arena.
  */
 import { WebSocket } from 'ws';
 
-const HEARTBEAT_TIMEOUT_MS = 8000;
+const HEARTBEAT_TIMEOUT_MS = 12000;
 const SWEEP_INTERVAL_MS = 2000;
 
 export class RoomManager {
@@ -70,6 +73,7 @@ export class RoomManager {
         break;
       case 'CLIENT_STATE_UPDATE':
       case 'PLAYER_FIRE':
+        this._touch(socket);
         this._relayToOpponent(socket, msg);
         break;
       default:
@@ -87,8 +91,21 @@ export class RoomManager {
     if (!roomId || !playerId) return;
 
     const existing = this.socketMeta.get(socket);
+    if (existing && existing.roomId === roomId && existing.playerId === playerId) {
+      this._touch(socket);
+      const room = this.rooms.get(roomId);
+      if (room && room.players.size === 2) {
+        this._send(socket, {
+          event: 'ROOM_READY',
+          roomId,
+          players: [...room.players.keys()],
+        });
+      }
+      return;
+    }
+
     if (existing) {
-      this._onDisconnect(socket, 'opponent_left');
+      this._detachSocket(socket);
     }
 
     let room = this.rooms.get(roomId);
@@ -105,6 +122,7 @@ export class RoomManager {
     // Rejoin same id replaces prior socket in that slot.
     const prior = room.players.get(playerId);
     if (prior && prior.socket !== socket) {
+      this.socketMeta.delete(prior.socket);
       try {
         prior.socket.close();
       } catch {
@@ -128,22 +146,45 @@ export class RoomManager {
   }
 
   /**
+   * Remove socket from its room without MATCH_END (slot change / rebind).
+   * @param {import('ws').WebSocket} socket
+   */
+  _detachSocket(socket) {
+    const meta = this.socketMeta.get(socket);
+    if (!meta) return;
+    this.socketMeta.delete(socket);
+    const room = this.rooms.get(meta.roomId);
+    if (!room) return;
+    room.players.delete(meta.playerId);
+    if (room.players.size === 0) {
+      this.rooms.delete(meta.roomId);
+    }
+  }
+
+  /**
    * @param {import('ws').WebSocket} socket
    * @param {{ timestamp?: unknown }} msg
    */
   _heartbeat(socket, msg) {
-    const meta = this.socketMeta.get(socket);
-    if (!meta) return;
-    const room = this.rooms.get(meta.roomId);
-    const peer = room?.players.get(meta.playerId);
-    if (!peer) return;
-
-    peer.lastHeartbeat = Date.now();
+    this._touch(socket);
     const timestamp =
       typeof msg.timestamp === 'number' && Number.isFinite(msg.timestamp)
         ? msg.timestamp
         : Date.now();
     this._send(socket, { event: 'HEARTBEAT', timestamp });
+  }
+
+  /**
+   * Pose / fire / heartbeat all count as liveness (background tabs throttle timers).
+   * @param {import('ws').WebSocket} socket
+   */
+  _touch(socket) {
+    const meta = this.socketMeta.get(socket);
+    if (!meta) return;
+    const room = this.rooms.get(meta.roomId);
+    const peer = room?.players.get(meta.playerId);
+    if (!peer) return;
+    peer.lastHeartbeat = Date.now();
   }
 
   /**
@@ -197,11 +238,9 @@ export class RoomManager {
 
   _sweepHeartbeats() {
     const now = Date.now();
-    for (const [roomId, room] of [...this.rooms.entries()]) {
-      for (const [playerId, peer] of [...room.players.entries()]) {
+    for (const [, room] of [...this.rooms.entries()]) {
+      for (const [, peer] of [...room.players.entries()]) {
         if (now - peer.lastHeartbeat <= HEARTBEAT_TIMEOUT_MS) continue;
-        const meta = this.socketMeta.get(peer.socket);
-        if (!meta || meta.roomId !== roomId || meta.playerId !== playerId) continue;
         this._onDisconnect(peer.socket, 'heartbeat_timeout');
       }
     }

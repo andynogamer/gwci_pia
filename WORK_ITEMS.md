@@ -67,10 +67,10 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-024](#wi-024) | REQ-UI | UI | Show `GAME_OVER` winner + score | WI-012, WI-018 | DONE |
 | [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | DONE |
 | [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | DONE |
-| [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | TODO |
+| [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | DONE |
 | [WI-028](#wi-028) | REQ-MODES, REQ-SRV-DB | UI + Network | Network Duel requires signed-in session | WI-026, WI-016 | DONE |
 
-**Next playable slice:** WI-027 (two Chrome clients in one PVP room; both must be signed in — WI-028).
+**Next playable slice:** PVP duel — two signed-in Chrome tabs, same arena (`pvp-map-{1|2|3}`).
 
 ---
 
@@ -674,7 +674,7 @@ Do not invent REST fields. Do not open sockets for this item. Parameterized SQL 
 - **Out of scope:** server-side AABB; new WS events; HUD radar
 - **Acceptance:** Two Chrome clients, same PVP room, same `mapId`: each sees opponent chassis, turret yaw, and fire. Heartbeat still drops a stale peer. Document the room id the menu uses if it is not obvious.
 - **Dispose / pause:** socket closes on `GAME_OVER` / leave (already required)
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

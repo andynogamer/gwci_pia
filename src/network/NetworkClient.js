@@ -1,12 +1,30 @@
 /**
  * Agent-Network — WebSocket client. Relays CONTRACTS.md §B telemetry only.
  * WI-026: on GAME_OVER, POST /api/scores when a Bearer token exists.
+ * WI-027: two Chrome clients share room `pvp-map-{mapId}` (mapId 1|2|3 from menu).
+ *
+ * Room id (must match on both tabs):
+ *   Desert Dunes (1)        → pvp-map-1
+ *   Industrial Complex (2)  → pvp-map-2
+ *   Lunar Station (3)       → pvp-map-3
+ *
  * No rendering, AABB, or damage. Imports: core + WebSocket / ApiClient only.
  */
 import { Topics, GameMode, Difficulty } from '../core/Constants.js';
 
 const DEFAULT_ROOM_ID = 'pvp-default';
 const HEARTBEAT_INTERVAL_MS = 2000;
+
+/**
+ * Menu mapId → WebSocket room id (WI-027).
+ * @param {number} mapId
+ * @returns {string}
+ */
+export function roomIdForMap(mapId) {
+  const n = Number(mapId);
+  if (n === 1 || n === 2 || n === 3) return `pvp-map-${n}`;
+  return DEFAULT_ROOM_ID;
+}
 
 export class NetworkClient {
   /**
@@ -26,6 +44,8 @@ export class NetworkClient {
     this.token = null;
     /** @type {{ mode: string, difficulty: string } | null} */
     this._match = null;
+    /** @type {object | null} Last outbound CLIENT_STATE_UPDATE (resent on ROOM_READY). */
+    this._lastStateFrame = null;
     /** @type {ReturnType<typeof setInterval> | null} */
     this._heartbeatTimer = null;
     /** @type {Array<() => void>} */
@@ -69,6 +89,7 @@ export class NetworkClient {
   joinRoom(roomId = DEFAULT_ROOM_ID) {
     this.roomId = typeof roomId === 'string' && roomId.trim() ? roomId.trim() : DEFAULT_ROOM_ID;
     this.roomReady = false;
+    this._lastStateFrame = null;
 
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this._sendJoin();
@@ -106,6 +127,7 @@ export class NetworkClient {
   disconnect() {
     this._clearHeartbeat();
     this.roomReady = false;
+    this._lastStateFrame = null;
     const socket = this.socket;
     this.socket = null;
     if (socket && socket.readyState < WebSocket.CLOSING) {
@@ -132,6 +154,7 @@ export class NetworkClient {
       turretRotY: Number(payload.turretRotY) || 0,
       hp: Number(payload.hp) || 0,
     };
+    this._lastStateFrame = frame;
     this._send(frame);
   }
 
@@ -158,9 +181,7 @@ export class NetworkClient {
       this.disconnect();
       return;
     }
-    const mapId = Number(payload.mapId);
-    const roomId = Number.isFinite(mapId) ? `pvp-map-${mapId}` : DEFAULT_ROOM_ID;
-    this.joinRoom(roomId);
+    this.joinRoom(roomIdForMap(payload.mapId));
   }
 
   /**
@@ -229,6 +250,10 @@ export class NetworkClient {
     switch (msg.event) {
       case 'ROOM_READY':
         this.roomReady = true;
+        // Immediate pose so the late joiner sees chassis/turret without waiting a tick.
+        if (this._lastStateFrame) {
+          this._send({ ...this._lastStateFrame, timestamp: Date.now() });
+        }
         break;
       case 'HEARTBEAT':
         break;
@@ -302,9 +327,17 @@ export class NetworkClient {
   }
 }
 
+/**
+ * Prefer the game server port on localhost so Vite's HMR proxy does not own /ws.
+ * Production / LAN builds still use same-origin `/ws`.
+ */
 function defaultWsUrl() {
   if (typeof location === 'undefined') {
     return 'ws://127.0.0.1:3001/ws';
+  }
+  const host = location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return `ws://${host}:3001/ws`;
   }
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${proto}//${location.host}/ws`;
