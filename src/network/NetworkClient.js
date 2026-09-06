@@ -258,10 +258,14 @@ export class NetworkClient {
     switch (msg.event) {
       case 'ROOM_READY':
         this.roomReady = true;
-        // Immediate pose so the late joiner sees chassis/turret without waiting a tick.
-        if (this._lastStateFrame) {
-          this._send({ ...this._lastStateFrame, timestamp: Date.now() });
-        }
+        this.bus.emit(Topics.ROOM_READY, {
+          roomId: typeof msg.roomId === 'string' ? msg.roomId : String(msg.roomId ?? ''),
+          players: Array.isArray(msg.players)
+            ? msg.players.map((id) => String(id))
+            : [],
+        });
+        // Drop waiting-pad pose; Logic snaps then publishes from the duel pad.
+        this._lastStateFrame = null;
         break;
       case 'HEARTBEAT':
         break;

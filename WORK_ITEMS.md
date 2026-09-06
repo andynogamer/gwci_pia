@@ -69,14 +69,18 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | DONE |
 | [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | DONE |
 | [WI-028](#wi-028) | REQ-MODES, REQ-SRV-DB | UI + Network | Network Duel requires signed-in session | WI-026, WI-016 | DONE |
-| [WI-029](#wi-029) | REQ-MULTI, REQ-MODES | Network + Logic | PVP opposite spawn pads from `ROOM_READY` | WI-027, WI-016 | TODO |
+| [WI-029](#wi-029) | REQ-MULTI, REQ-MODES | Network + Logic | PVP opposite spawn pads from `ROOM_READY` | WI-027, WI-016 | DONE |
 | [WI-030](#wi-030) | REQ-MULTI | Network + Logic | `MATCH_END` ends the local duel | WI-027, WI-016 | TODO |
 | [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | TODO |
 | [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | TODO |
 | [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | TODO |
 | [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | TODO |
+| [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | TODO |
+| [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | TODO |
+| [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | TODO |
+| [WI-038](#wi-038) | REQ-MODES | Logic | PVP victor leaves Playing via `GAME_OVER` | WI-016, WI-029 | TODO |
 
-**Next playable slice:** **WI-029** — Network Duel spawn pads (do this before map expand). Two signed-in Chrome tabs must not share a chassis origin.
+**Next playable slice:** Bugfix queue **WI-035 → WI-038** (spawn stuck, game-over label/score, PVP winner stuck). Then **WI-030** (`MATCH_END`).
 
 ---
 
@@ -734,7 +738,7 @@ Require sign-in before Network Duel. PVE stays available to guests.
   - Placeholder opponent sits on the **other** pad, not a PVE AI spot. First `CLIENT_STATE_UPDATE` from the peer replaces that pose.
   - PVE spawn is unchanged (`volumes.spawn`).
 - **Dispose / pause:** teleport on `ROOM_READY` only while Playing/Paused; socket still closes on `GAME_OVER`
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
@@ -867,6 +871,104 @@ HUD_STATE numbers only. Do not import three. Do not edit engine or logic.
 Execute WORK_ITEMS.md WI-034 only.
 PVP pickups are per-client today. Pick (a) disable PVP loot or (b) contract a relay.
 Update CONTRACTS.md if you add fields. No server physics. No rendering.
+```
+
+---
+
+### WI-035
+
+- **REQ:** playability (PVP / pad snap can land inside an obstacle → chassis stuck)
+- **Agent:** Logic
+- **Scope:** `src/logic/physics/mapVolumes.js` (`pvpPads`), optionally `GameManager.js` `_onRoomReady` (resolve pad through `CollisionManager.resolveTankMove` / legal offsets)
+- **Depends on:** WI-029
+- **Contracts:** none new
+- **Out of scope:** map expand (WI-031); Engine meshes; UI
+- **Acceptance:** On every map `1|2|3`, after `ROOM_READY`, each local tank’s AABB is **fully inside bounds and not intersecting any obstacle**. If a pad coordinate is blocked, Logic nudges to a legal nearby cell (same approach as enemy spawn offsets). W drives clear of cover. PVE `volumes.spawn` still clear. Pads remain ≥ 18 apart after any nudge (or re-pick a clear pair that stays ≥ 18 apart).
+- **Dispose / pause:** n/a
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-035 only.
+You are Agent-Logic. PVP pads must not spawn tanks inside obstacles.
+Retune mapVolumes pvpPads and/or resolveTankMove on ROOM_READY snap.
+No engine meshes. No UI. Do not expand arena HALF (WI-031).
+```
+
+---
+
+### WI-036
+
+- **REQ:** REQ-UI / REQ-MULTI (game-over shows player UUID; usernames are unique from auth)
+- **Agent:** Logic + Network + Core (CONTRACTS in the same change)
+- **Scope:** `CONTRACTS.md`, `src/core/Constants.js` only if a topic/field is added, `src/logic/gamemodes/NetworkDuel.js`, `src/logic/GameManager.js`, `src/network/NetworkClient.js` (and thin `main.js` wiring if username must be injected like `getLocalPlayerId`)
+- **Depends on:** WI-026, WI-029
+- **Contracts:** Extend EventBus `GAME_OVER` and/or PVP identity so the **display winner is the unique username**, not `player-uuid`. Prefer documenting:
+
+```json
+{ "winner": "string", "score": 0 }
+```
+
+  with `winner` semantics: PVE keeps `"player"` \| `"arena"` \| `""`; PVP uses **username** strings (local or opponent). If you need opponent username before `GAME_OVER`, extend `CLIENT_STATE_UPDATE` **or** `ROOM_READY` with a parallel `usernames` array — **update CONTRACTS.md in the same change**; no ad-hoc fields.
+- **Out of scope:** Game Over CSS / DOM layout (WI-037); REST schema change; server AABB
+- **Acceptance:** After a PVP kill, both clients’ `GAME_OVER.winner` is a registered username (or empty on quit), never a raw `playerId` UUID. PVE still emits `player` / `arena`. Score POST (WI-026) still uses numeric `score` only.
+- **Dispose / pause:** n/a
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-036 only.
+Publish unique usernames on GAME_OVER for PVP (not NetworkClient playerId).
+Update CONTRACTS.md if you add identity fields. No Game Over CSS. No DOM in Logic.
+```
+
+---
+
+### WI-037
+
+- **REQ:** REQ-UI (Mission Report winner/score hard to read or blank)
+- **Agent:** UI
+- **Scope:** `src/ui/screens/GameOver.js`, `src/ui/styles/ui.css`, `src/ui/UIManager.js` if needed
+- **Depends on:** WI-024, WI-036
+- **Contracts:** consume `GAME_OVER` only (winner already username per WI-036 for PVP)
+- **Out of scope:** inventing usernames in UI without the bus; Logic/Network; Three.js
+- **Acceptance:** Game Over panel under `#ui-root` always shows:
+  - **Winner** as the human-readable name from the payload (PVP username; PVE `Player` / `Arena` labels OK)
+  - **Score** as a visible decimal integer (including `0`) — never an empty `<dd>`
+  Contrast/layout must remain readable on the existing dark overlay. Main Menu button still dismisses.
+- **Dispose / pause:** overlay DOM-only; sim already stopped
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-037 only.
+You are Agent-UI. Fix Game Over winner label + score visibility.
+Do not import three. Do not edit Logic/Network. Rely on WI-036 winner strings.
+```
+
+---
+
+### WI-038
+
+- **REQ:** REQ-MODES (playability — PVP winner remains in Playing after the opponent dies)
+- **Agent:** Logic
+- **Scope:** `src/logic/gamemodes/NetworkDuel.js`, `src/logic/GameManager.js`
+- **Depends on:** WI-016, WI-029
+- **Contracts:** existing `GAME_OVER` only (no new topics)
+- **Out of scope:** `MATCH_END` / disconnect path (WI-030); UI overlay markup (WI-037); spawn pads (WI-035)
+- **Acceptance:** When the local client detects a PVP win (opponent HP ≤ 0 via `CLIENT_STATE_UPDATE` or equivalent duel rule), it **must** call `endMatch` so state becomes `GAME_OVER`, clock stops, tanks/projectiles tear down, and `GAME_OVER` is emitted once. Winner does not keep driving / firing in Playing. Loser’s existing defeat → `endMatch` still works. No double-emit loops.
+- **Dispose / pause:** full match teardown on victory (same as defeat)
+- **Status:** TODO
+
+**Prompt**
+
+```
+Execute WORK_ITEMS.md WI-038 only.
+You are Agent-Logic. PVP winner must leave Playing via endMatch + GAME_OVER.
+Do not implement MATCH_END (WI-030). No UI. No sockets.
 ```
 
 

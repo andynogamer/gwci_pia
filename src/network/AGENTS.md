@@ -14,7 +14,7 @@ Imports: `/src/core/*`, `fetch`, `WebSocket`. **No `three`. No DOM writes.**
 
 - `NetworkClient.js`: join room, heartbeat, send/receive `CLIENT_STATE_UPDATE`, relay fire events.
 - `ApiClient.js`: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/scores`, `GET /api/scores`.
-- Translate socket messages into EventBus payloads that already exist in CONTRACTS.md.
+- Translate socket messages into EventBus payloads that already exist in CONTRACTS.md (including `ROOM_READY` → bus for Logic pad assignment).
 - Translate local bus events (`PLAYER_FIRE`, tank pose from logic — as plain arrays) into WS frames.
 
 ## Prohibitions

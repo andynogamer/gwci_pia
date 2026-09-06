@@ -132,6 +132,25 @@ Plain numbers for the in-game HUD radar and power-up countdown. No Three.js obje
 **Publishers:** Agent-Logic (each Playing sim tick)  
 **Subscribers:** Agent-UI (radar dots + power-up chip). Ignore while not Playing.
 
+### ROOM_READY
+
+Mirrors WebSocket §B `ROOM_READY` without the `event` discriminator. Join order in `players` is authoritative for spawn pads.
+
+```json
+{
+  "roomId": "string",
+  "players": ["player-uuid-a", "player-uuid-b"]
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `roomId` | string | Same id both peers joined (`pvp-map-{1\|2\|3}`) |
+| `players` | `string[]` | Length 2. Index `0` → pad A, index `1` → pad B |
+
+**Publishers:** Agent-Network (WS → bus)  
+**Subscribers:** Agent-Logic (PVP pad snap + face opponent). Ignore outside PVP / not Playing|Paused.
+
 ### CLIENT_STATE_UPDATE
 
 Same numeric fields as WebSocket §B (`id`, `timestamp`, `pos`, `rotY`, `turretRotY`, `hp`). EventBus payloads omit the WS `event` discriminator.

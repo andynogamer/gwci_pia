@@ -90,6 +90,11 @@ const BY_MAP = {
       [18, -18, 0],
       [-18, -18, 0],
     ],
+    // WI-029 — opposite duel pads (≥ 18 apart). Index 0 = pad A, 1 = pad B.
+    pvpPads: [
+      [-16, 0],
+      [16, 0],
+    ],
     bounds: arenaBounds(),
     obstacles: desertObstacles(),
     items: [
@@ -104,6 +109,10 @@ const BY_MAP = {
       [16, -14, 0],
       [-16, 0, Math.PI / 2],
     ],
+    pvpPads: [
+      [-16, 10],
+      [16, 10],
+    ],
     bounds: arenaBounds(),
     obstacles: industrialObstacles(),
     items: [
@@ -117,6 +126,10 @@ const BY_MAP = {
     enemies: [
       [16, 8, 0],
       [-16, 8, 0],
+    ],
+    pvpPads: [
+      [-16, -6],
+      [16, -6],
     ],
     bounds: arenaBounds(),
     obstacles: lunarObstacles(),
@@ -133,4 +146,16 @@ const BY_MAP = {
  */
 export function getMapVolumes(mapId) {
   return BY_MAP[mapId] ?? BY_MAP[1];
+}
+
+/**
+ * @param {1 | 2 | 3} mapId
+ * @returns {[[number, number], [number, number]]}
+ */
+export function getPvpPads(mapId) {
+  const pads = (BY_MAP[mapId] ?? BY_MAP[1]).pvpPads;
+  return [
+    [pads[0][0], pads[0][1]],
+    [pads[1][0], pads[1][1]],
+  ];
 }

@@ -11,6 +11,7 @@ import { AudioSystem } from './audio/AudioSystem.js';
 import { ItemSystem, REPAIR_AMOUNT } from './items/ItemSystem.js';
 import { HordeSurvival } from './gamemodes/HordeSurvival.js';
 import { NetworkDuel } from './gamemodes/NetworkDuel.js';
+import { getPvpPads } from './physics/mapVolumes.js';
 
 const VALID_MODES = new Set(Object.values(GameMode));
 const VALID_DIFFICULTIES = new Set(Object.values(Difficulty));
@@ -92,6 +93,9 @@ export class GameManager {
     );
     this._unsubs.push(
       this.bus.on(Topics.PLAYER_FIRE, (payload) => this._onRemoteFire(payload)),
+    );
+    this._unsubs.push(
+      this.bus.on(Topics.ROOM_READY, (payload) => this._onRoomReady(payload)),
     );
 
     this._scheduleLoop();
@@ -192,10 +196,15 @@ export class GameManager {
 
   /**
    * Integrator supplies chassis axes. Ignored unless Playing (applied next tick).
+   * PVP: ignored until ROOM_READY (WI-029).
    * @param {number} throttle
    * @param {number} steer
    */
   setChassisInput(throttle, steer) {
+    if (this.duel && !this.duel.canControl()) {
+      this.tank.setChassisInput(0, 0);
+      return;
+    }
     this.tank.setChassisInput(throttle, steer);
   }
 
@@ -204,12 +213,17 @@ export class GameManager {
    * @param {number} turretSteer
    */
   setTurretInput(turretSteer) {
+    if (this.duel && !this.duel.canControl()) {
+      this.tank.setTurretInput(0);
+      return;
+    }
     this.tank.setTurretInput(turretSteer);
   }
 
   /** Spacebar fire. Emits PLAYER_FIRE when Playing and cooldown allows. */
   tryFire() {
     if (this.state !== GameState.PLAYING) return false;
+    if (this.duel && !this.duel.canControl()) return false;
     const shot = this.tank.tryFire();
     if (!shot) return false;
     this._spawnShot(shot, LOCAL_TANK_ID);
@@ -225,6 +239,11 @@ export class GameManager {
    * @param {number} dt seconds from THREE.Clock.getDelta()
    */
   update(dt) {
+    if (this.duel && !this.duel.canControl()) {
+      this.tank.setChassisInput(0, 0);
+      this.tank.setTurretInput(0);
+    }
+
     const prevX = this.tank.x;
     const prevZ = this.tank.z;
     this.tank.update(dt);
@@ -507,13 +526,21 @@ export class GameManager {
   }
 
   /**
-   * @param {{ enemies?: Array<[number, number, number?]>, spawn?: [number, number] }} volumes
+   * @param {{ enemies?: Array<[number, number, number?]>, spawn?: [number, number], pvpPads?: Array<[number, number]> }} volumes
    */
   _startDuel(volumes) {
     const localId = String(this.getLocalPlayerId() || LOCAL_TANK_ID);
-    const spot = volumes.enemies?.[0];
+    const mapId = this.match?.mapId ?? 1;
+    const pads = volumes.pvpPads?.length >= 2
+      ? /** @type {[[number, number], [number, number]]} */ ([
+          [volumes.pvpPads[0][0], volumes.pvpPads[0][1]],
+          [volumes.pvpPads[1][0], volumes.pvpPads[1][1]],
+        ])
+      : getPvpPads(/** @type {1|2|3} */ (mapId));
+
     this.duel = new NetworkDuel({
       localId,
+      pads,
       publishLocalState: (payload) => {
         this.bus.emit(Topics.CLIENT_STATE_UPDATE, payload);
       },
@@ -523,10 +550,34 @@ export class GameManager {
       },
     });
     this.duel.start();
+    // Hold at PVE spawn origin until ROOM_READY assigns opposite pads (no wander).
+    this.tank.setChassisInput(0, 0);
+    this.tank.setTurretInput(0);
+  }
 
-    if (spot) {
-      this._ensureOpponent(null, spot[0], spot[1]);
+  /**
+   * WI-029 — snap local + placeholder opponent to pad A/B from join order.
+   * @param {{ roomId?: string, players?: string[] }} payload
+   */
+  _onRoomReady(payload) {
+    if (!this.duel) return;
+    if (this.state !== GameState.PLAYING && this.state !== GameState.PAUSED) return;
+
+    const placement = this.duel.applyRoomReady(payload);
+    if (!placement) return;
+
+    this.tank.reset(placement.local.x, placement.local.z, placement.local.rotY);
+    this._playerPrevX = this.tank.x;
+    this._playerPrevZ = this.tank.z;
+    this._ensureOpponent(placement.remote.id, placement.remote.x, placement.remote.z);
+    if (this.opponent) {
+      this.opponent.rotY = placement.remote.rotY;
+      this.opponent.turretRotY = placement.remote.rotY;
     }
+    this._refreshBodies();
+    this.cameraManager?.snapFollow();
+    this._syncVisuals();
+    this._publishHudState();
   }
 
   /**
@@ -536,7 +587,11 @@ export class GameManager {
    */
   _ensureOpponent(id, x = 12, z = -14) {
     const oid = id ? String(id) : this.opponent?.id ?? 'remote';
-    if (this.opponent && this.opponent.id === oid) return;
+    if (this.opponent && this.opponent.id === oid) {
+      this.opponent.x = x;
+      this.opponent.z = z;
+      return;
+    }
     if (this.opponent && this.opponent.id !== oid) {
       this.sceneManager?.despawnEnemyTank(this.opponent.id);
     }
@@ -593,7 +648,7 @@ export class GameManager {
    * @param {{ origin?: number[], direction?: number[], isLocal?: boolean }} payload
    */
   _onRemoteFire(payload) {
-    if (!this.duel || this.state !== GameState.PLAYING) return;
+    if (!this.duel || !this.duel.canControl() || this.state !== GameState.PLAYING) return;
     if (!payload || payload.isLocal !== false) return;
     if (!Array.isArray(payload.origin) || !Array.isArray(payload.direction)) return;
     const ownerId = this.opponent?.id ?? this.duel.remoteId ?? 'remote';
