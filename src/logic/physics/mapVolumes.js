@@ -91,6 +91,11 @@ const BY_MAP = {
     ],
     bounds: arenaBounds(),
     obstacles: desertObstacles(),
+    items: [
+      { type: 'SHIELD', x: 14, z: 6 },
+      { type: 'TRIPLE', x: -14, z: 6 },
+      { type: 'REPAIR', x: 0, z: -16 },
+    ],
   },
   2: {
     spawn: [0, 6],
@@ -100,6 +105,11 @@ const BY_MAP = {
     ],
     bounds: arenaBounds(),
     obstacles: industrialObstacles(),
+    items: [
+      { type: 'SHIELD', x: -3, z: 4 },
+      { type: 'TRIPLE', x: 14, z: -2 },
+      { type: 'REPAIR', x: 6, z: 10 },
+    ],
   },
   3: {
     spawn: [0, 16],
@@ -109,6 +119,11 @@ const BY_MAP = {
     ],
     bounds: arenaBounds(),
     obstacles: lunarObstacles(),
+    items: [
+      { type: 'SHIELD', x: 10, z: 14 },
+      { type: 'TRIPLE', x: -10, z: 14 },
+      { type: 'REPAIR', x: 0, z: -6 },
+    ],
   },
 };
 

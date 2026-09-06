@@ -1,12 +1,14 @@
 /**
- * Agent-Logic — state machine, local tank, AABB, enemy AI (WI-006–009).
+ * Agent-Logic — match loop, AABB, AI, audio, items (WI-006–011).
  * Boot → Menu → Playing → Paused → GameOver.
  */
 import { Clock } from 'three';
-import { Difficulty, DifficultyConfig, GameMode, GameState, MapId, Topics } from '../core/Constants.js';
+import { Difficulty, DifficultyConfig, GameMode, GameState, ItemType, MapId, Topics } from '../core/Constants.js';
 import { TankController } from './entities/TankController.js';
 import { CollisionManager, LOCAL_TANK_ID } from './physics/CollisionManager.js';
 import { EnemyAI } from './ai/EnemyAI.js';
+import { AudioSystem } from './audio/AudioSystem.js';
+import { ItemSystem, REPAIR_AMOUNT } from './items/ItemSystem.js';
 
 const VALID_MODES = new Set(Object.values(GameMode));
 const VALID_DIFFICULTIES = new Set(Object.values(Difficulty));
@@ -14,6 +16,15 @@ const VALID_MAP_IDS = new Set(Object.values(MapId));
 
 const MAX_HP = 100;
 const SHOT_DAMAGE = 18;
+
+function yawShot(shot, yaw) {
+  const a = Math.atan2(shot.direction[0], shot.direction[2]) + yaw;
+  return {
+    origin: shot.origin,
+    direction: [Math.sin(a), shot.direction[1], Math.cos(a)],
+    isLocal: shot.isLocal,
+  };
+}
 
 export class GameManager {
   /**
@@ -33,6 +44,8 @@ export class GameManager {
     this.playingTicks = 0;
     this.tank = new TankController();
     this.collision = new CollisionManager();
+    this.audio = new AudioSystem();
+    this.items = new ItemSystem();
     this.maxHp = MAX_HP;
     this.hp = MAX_HP;
     /** @type {Array<{ id: string, tank: TankController, ai: EnemyAI, hp: number, maxHp: number }>} */
@@ -58,6 +71,9 @@ export class GameManager {
     this._unsubs.push(
       this.bus.on(Topics.GAME_PAUSE, (payload) => this.pause(payload)),
     );
+    this._unsubs.push(
+      this.bus.on(Topics.SETTINGS_UPDATED, (payload) => this.audio.applySettings(payload)),
+    );
 
     this._scheduleLoop();
   }
@@ -78,6 +94,7 @@ export class GameManager {
     this.playingTicks = 0;
     this.hp = this.maxHp;
     this._clearEnemies();
+    this.items.clear();
     const volumes = this.collision.loadMap(payload.mapId);
     const spawn = volumes.spawn ?? [0, 6];
     this.tank.reset(spawn[0], spawn[1], Math.PI);
@@ -89,10 +106,15 @@ export class GameManager {
       this._spawnEnemies(volumes, payload.difficulty);
     }
     this._refreshBodies();
+    this.items.spawn(volumes.items ?? []);
+    this.sceneManager?.syncPickups(this._pickupViews());
     this._syncVisuals();
     this.cameraManager?.snapFollow();
     this.state = GameState.PLAYING;
     this.clock.start();
+    void this.audio.unlock();
+    this.audio.setPaused(false);
+    this.audio.playBgm();
   }
 
   /**
@@ -105,12 +127,15 @@ export class GameManager {
       if (this.state !== GameState.PLAYING) return;
       this.state = GameState.PAUSED;
       this.clock.stop();
+      this.audio.setEngine(0);
+      this.audio.setPaused(true);
       return;
     }
 
     if (this.state !== GameState.PAUSED) return;
     this.state = GameState.PLAYING;
     this.clock.start();
+    this.audio.setPaused(false);
   }
 
   /**
@@ -125,8 +150,13 @@ export class GameManager {
     this.state = GameState.GAME_OVER;
     this.clock.stop();
     this.tank.setChassisInput(0, 0);
+    this.audio.setEngine(0);
+    this.audio.stopBgm();
+    this.audio.setPaused(false);
     this._clearEnemies();
+    this.items.clear();
     this.collision.clear();
+    this.sceneManager?.clearPickups();
     this.sceneManager?.clearProjectiles();
     this.sceneManager?.despawnLocalTank();
     this.bus.emit(Topics.GAME_OVER, {
@@ -157,8 +187,12 @@ export class GameManager {
     if (this.state !== GameState.PLAYING) return false;
     const shot = this.tank.tryFire();
     if (!shot) return false;
-    this.bus.emit(Topics.PLAYER_FIRE, shot);
-    this.collision.spawnProjectile(shot, LOCAL_TANK_ID);
+    this._spawnShot(shot, LOCAL_TANK_ID);
+    if (this.items.hasTriple(LOCAL_TANK_ID)) {
+      this.collision.spawnProjectile(yawShot(shot, 0.22), LOCAL_TANK_ID);
+      this.collision.spawnProjectile(yawShot(shot, -0.22), LOCAL_TANK_ID);
+    }
+    this.audio.playSfx('fire');
     return true;
   }
 
@@ -173,6 +207,8 @@ export class GameManager {
     const moved = this.collision.resolveTankMove(prevX, prevZ, this.tank.x, this.tank.z, LOCAL_TANK_ID);
     this.tank.x = moved.x;
     this.tank.z = moved.z;
+    this.audio.setEngine(Math.abs(this.tank.throttle));
+    this._tryPickup(LOCAL_TANK_ID, this.tank.x, this.tank.z);
 
     const invDt = dt > 0 ? 1 / dt : 0;
     const playerVx = (this.tank.x - this._playerPrevX) * invDt;
@@ -189,6 +225,8 @@ export class GameManager {
     ];
     this.collision.updateProjectiles(dt, tanks, (entityId) => this._damage(entityId, SHOT_DAMAGE));
 
+    this.items.update(dt);
+
     if (this.state !== GameState.PLAYING) return;
     this._syncVisuals();
   }
@@ -199,6 +237,7 @@ export class GameManager {
    */
   _damage(entityId, amount) {
     if (this.state !== GameState.PLAYING) return;
+    if (this.items.hasShield(entityId)) return;
     if (entityId === LOCAL_TANK_ID) {
       this.hp = Math.max(0, this.hp - amount);
       this.bus.emit(Topics.TANK_DAMAGED, {
@@ -207,6 +246,7 @@ export class GameManager {
         maxHp: this.maxHp,
       });
       if (this.hp <= 0) {
+        this.audio.playSfx('explosion');
         this.endMatch({ winner: 'arena', score: 0 });
       }
       return;
@@ -221,6 +261,7 @@ export class GameManager {
       maxHp: enemy.maxHp,
     });
     if (enemy.hp <= 0) {
+      this.audio.playSfx('explosion');
       this.sceneManager?.despawnEnemyTank(enemy.id);
       this.enemies = this.enemies.filter((e) => e.id !== entityId);
     }
@@ -243,6 +284,8 @@ export class GameManager {
       maxHp: this.maxHp,
       obstacleCount: this.collision.obstacles.length,
       projectileCount: this.collision.projectiles.length,
+      pickups: this.items.livePickups().map((p) => ({ id: p.id, type: p.type, x: p.x, z: p.z })),
+      powerup: this.items.getActive(LOCAL_TANK_ID),
       enemies: this.enemies.map((e) => ({
         id: e.id,
         state: e.ai.state,
@@ -260,9 +303,12 @@ export class GameManager {
     }
     this.clock.stop();
     this._clearEnemies();
+    this.items.clear();
     this.collision.clear();
+    this.sceneManager?.clearPickups();
     this.sceneManager?.clearProjectiles();
     this.sceneManager?.despawnLocalTank();
+    this.audio.dispose();
     for (const off of this._unsubs) {
       off();
     }
@@ -286,6 +332,7 @@ export class GameManager {
         z: p.z,
       })),
     );
+    this.sceneManager?.syncPickups(this._pickupViews());
     this.cameraManager?.setTarget(pose.x, pose.y, pose.z);
     this.cameraManager?.setFollowYaw(pose.turretRotY);
   }
@@ -411,8 +458,48 @@ export class GameManager {
       if (!enemy.ai.wantFire) continue;
       const shot = enemy.tank.tryFire(false);
       if (!shot) continue;
-      this.bus.emit(Topics.PLAYER_FIRE, shot);
-      this.collision.spawnProjectile(shot, enemy.id);
+      this._spawnShot(shot, enemy.id);
+      this.audio.playSfx('fire');
     }
+  }
+
+  /**
+   * @param {{ origin: number[], direction: number[], isLocal: boolean }} shot
+   * @param {string} ownerId
+   */
+  _spawnShot(shot, ownerId) {
+    this.bus.emit(Topics.PLAYER_FIRE, shot);
+    this.collision.spawnProjectile(shot, ownerId);
+  }
+
+  /**
+   * @param {string} entityId
+   * @param {number} x
+   * @param {number} z
+   */
+  _tryPickup(entityId, x, z) {
+    const got = this.items.tryCollectAt(entityId, x, z);
+    if (!got) return;
+    this.bus.emit(Topics.ITEM_COLLECTED, { type: got.type, entityId });
+    this.audio.playSfx('pickup');
+    if (got.type === ItemType.REPAIR && entityId === LOCAL_TANK_ID) {
+      this.hp = Math.min(this.maxHp, this.hp + REPAIR_AMOUNT);
+      this.bus.emit(Topics.TANK_DAMAGED, {
+        entityId,
+        currentHp: this.hp,
+        maxHp: this.maxHp,
+      });
+    }
+  }
+
+  _pickupViews() {
+    const bob = 0.72 + Math.sin(this.simElapsed * 2.2) * 0.14;
+    return this.items.livePickups().map((p) => ({
+      id: p.id,
+      type: p.type,
+      x: p.x,
+      y: bob,
+      z: p.z,
+    }));
   }
 }

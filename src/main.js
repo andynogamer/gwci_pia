@@ -24,10 +24,10 @@ const ui = new UIManager(uiRoot, eventBus, {
 const api = new ApiClient();
 const net = new NetworkClient(eventBus);
 
-ui.mount();
 renderer.mount();
 renderer.start();
 game.boot();
+ui.mount();
 net.bind();
 bindLocalTankInput(game);
 

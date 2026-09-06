@@ -37,6 +37,13 @@ export class SceneManager {
     /** @type {THREE.MeshStandardMaterial | null} */
     this._shellMat = null;
 
+    /** @type {Map<string, THREE.Mesh>} */
+    this._pickups = new Map();
+    /** @type {THREE.OctahedronGeometry | null} */
+    this._pickupGeo = null;
+    /** @type {Map<string, THREE.MeshStandardMaterial>} */
+    this._pickupMats = new Map();
+
     /** @type {ParticleSystem | null} */
     this.particles = null;
   }
@@ -224,6 +231,69 @@ export class SceneManager {
   }
 
   /**
+   * Logic pickups as colored markers (no shield shader — WI-017).
+   * @param {Array<{ id: string, type: string, x: number, y: number, z: number }>} list
+   */
+  syncPickups(list) {
+    this._ensurePickupAssets();
+    const live = new Set();
+    for (const p of list) {
+      live.add(p.id);
+      let mesh = this._pickups.get(p.id);
+      if (!mesh) {
+        const mat = this._pickupMats.get(p.type) ?? this._pickupMats.get('SHIELD');
+        mesh = new THREE.Mesh(this._pickupGeo, mat);
+        mesh.castShadow = false;
+        this.scene.add(mesh);
+        this._pickups.set(p.id, mesh);
+      }
+      mesh.position.set(p.x, p.y, p.z);
+      mesh.rotation.y = p.y * 2;
+    }
+    for (const [id, mesh] of this._pickups) {
+      if (live.has(id)) continue;
+      this.scene.remove(mesh);
+      this._pickups.delete(id);
+    }
+  }
+
+  clearPickups() {
+    for (const mesh of this._pickups.values()) {
+      this.scene.remove(mesh);
+    }
+    this._pickups.clear();
+  }
+
+  _ensurePickupAssets() {
+    if (!this._pickupGeo) {
+      this._pickupGeo = new THREE.OctahedronGeometry(0.55, 0);
+    }
+    if (this._pickupMats.size === 0) {
+      this._pickupMats.set('SHIELD', this._pickupMat(0x3ec7ff, 0x1a6a88));
+      this._pickupMats.set('TRIPLE', this._pickupMat(0xff9a3c, 0x8a4a12));
+      this._pickupMats.set('REPAIR', this._pickupMat(0x5dde7a, 0x1d6a32));
+    }
+  }
+
+  _pickupMat(color, emissive) {
+    return new THREE.MeshStandardMaterial({
+      color,
+      emissive,
+      emissiveIntensity: 0.7,
+      roughness: 0.4,
+      metalness: 0.25,
+    });
+  }
+
+  _disposePickupAssets() {
+    this.clearPickups();
+    this._pickupGeo?.dispose();
+    this._pickupGeo = null;
+    for (const mat of this._pickupMats.values()) mat.dispose();
+    this._pickupMats.clear();
+  }
+
+  /**
    * Logic-owned AABB shells as simple meshes.
    * @param {Array<{ id: number, x: number, y: number, z: number }>} shots
    */
@@ -303,6 +373,7 @@ export class SceneManager {
   dispose() {
     this.despawnLocalTank();
     this.despawnEnemyTanks();
+    this._disposePickupAssets();
     this._disposeShellAssets();
     this.unloadMap();
 

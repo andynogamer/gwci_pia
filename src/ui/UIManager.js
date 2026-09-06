@@ -55,6 +55,8 @@ export class UIManager {
       this.paused = false;
       this.activeScreen = 'menu';
       this.hud.setArmor(100, 100);
+      this.hud.setPowerup('Power-up —');
+      this.hud.setAmmo('Ammo —');
       this._applyVisibility();
     });
 
@@ -77,6 +79,18 @@ export class UIManager {
     this.bus.on(Topics.TANK_DAMAGED, (payload) => {
       if (!payload || payload.entityId !== 'local') return;
       this.hud.setArmor(Number(payload.currentHp), Number(payload.maxHp) || 100);
+    });
+
+    this.bus.on(Topics.ITEM_COLLECTED, (payload) => {
+      if (!payload || payload.entityId !== 'local') return;
+      const labels = {
+        SHIELD: 'Shield',
+        TRIPLE: 'Triple shell',
+        REPAIR: 'Repair kit',
+      };
+      this.hud.setPowerup(labels[payload.type] ?? String(payload.type));
+      if (payload.type === 'TRIPLE') this.hud.setAmmo('Ammo ×3');
+      if (payload.type === 'REPAIR') this.hud.setAmmo('Ammo —');
     });
 
     window.addEventListener('keydown', (e) => {

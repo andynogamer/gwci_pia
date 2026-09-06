@@ -147,7 +147,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Field | Value |
 | --- | --- |
 | Owner | Agent-Logic |
-| Status | SCAFFOLD |
+| Status | DONE |
 
 **Acceptance:** Volumes respond to `SETTINGS_UPDATED`. Item pickup emits `ITEM_COLLECTED` and applies the documented lifecycle.
 
