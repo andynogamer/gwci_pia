@@ -3,6 +3,7 @@
  * Placeholder geometry only until WI-005 (three arenas).
  */
 import * as THREE from 'three';
+import { DualLights } from './lights/DualLights.js';
 
 export class SceneManager {
   constructor() {
@@ -18,33 +19,71 @@ export class SceneManager {
     /** @type {THREE.Mesh | null} */
     this._marker = null;
 
+    /** @type {DualLights | null} */
+    this.lights = null;
+
     this._spinRadPerSec = 0.6;
   }
 
   /**
    * Boot visuals so the canvas shows a live frame before maps exist (WI-005).
+   * Uses lit materials so Ambient + SpotLight (WI-004) are visible.
    */
   preparePlaceholder() {
     this.clearOwned();
+    this._ensureLights();
 
     const groundGeo = new THREE.PlaneGeometry(40, 40);
-    const groundMat = new THREE.MeshBasicMaterial({ color: 0x243040 });
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x2a3848,
+      roughness: 0.92,
+      metalness: 0.05,
+    });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = 0;
+    ground.receiveShadow = true;
     this.scene.add(ground);
     this._owned.push(ground);
 
     const grid = new THREE.GridHelper(40, 20, 0x4a6280, 0x2a3848);
+    grid.position.y = 0.01;
     this.scene.add(grid);
     this._owned.push(grid);
 
     const markerGeo = new THREE.BoxGeometry(1.4, 1.4, 1.4);
-    const markerMat = new THREE.MeshBasicMaterial({ color: 0xe0a23a });
+    const markerMat = new THREE.MeshStandardMaterial({
+      color: 0xe0a23a,
+      roughness: 0.55,
+      metalness: 0.15,
+    });
     this._marker = new THREE.Mesh(markerGeo, markerMat);
     this._marker.position.set(0, 0.7, 0);
+    this._marker.castShadow = true;
+    this._marker.receiveShadow = true;
     this.scene.add(this._marker);
     this._owned.push(this._marker);
+
+    // Extra caster so SpotLight shadows are obvious under the headlight beam.
+    const pillarGeo = new THREE.BoxGeometry(1.2, 2.4, 1.2);
+    const pillarMat = new THREE.MeshStandardMaterial({
+      color: 0x5a6a7a,
+      roughness: 0.8,
+      metalness: 0.2,
+    });
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(2.5, 1.2, 3);
+    pillar.castShadow = true;
+    pillar.receiveShadow = true;
+    this.scene.add(pillar);
+    this._owned.push(pillar);
+  }
+
+  _ensureLights() {
+    if (!this.lights) {
+      this.lights = new DualLights();
+    }
+    this.lights.addToScene(this.scene);
   }
 
   /**
@@ -55,6 +94,8 @@ export class SceneManager {
     this.mapId = mapId;
     if (this._owned.length === 0) {
       this.preparePlaceholder();
+    } else {
+      this._ensureLights();
     }
   }
 
@@ -84,6 +125,11 @@ export class SceneManager {
   dispose() {
     this.clearOwned();
     this.mapId = null;
+
+    if (this.lights) {
+      this.lights.dispose();
+      this.lights = null;
+    }
 
     this.scene.traverse((obj) => {
       this._disposeObject(obj);

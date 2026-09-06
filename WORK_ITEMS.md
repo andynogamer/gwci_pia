@@ -44,7 +44,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-001](#wi-001) | boot | Integrator | Install client/server and confirm canvas + `#ui-root` boot | — | DONE |
 | [WI-002](#wi-002) | REQ-UI | UI | Four screens + navigation (menu, settings, highscores, pause) | WI-001 | DONE |
 | [WI-003](#wi-003) | boot | Engine | Renderer loop, cameras, resize, dispose | WI-001 | DONE |
-| [WI-004](#wi-004) | REQ-COL-LIGHT | Engine | Ambient + tank SpotLight (shadows) | WI-003 | TODO |
+| [WI-004](#wi-004) | REQ-COL-LIGHT | Engine | Ambient + tank SpotLight (shadows) | WI-003 | DONE |
 | [WI-005](#wi-005) | REQ-MAPS | Engine | Three thematic arenas | WI-003 | TODO |
 | [WI-006](#wi-006) | boot | Logic | State machine + `THREE.Clock` game loop | WI-001 | TODO |
 | [WI-007](#wi-007) | — | Logic | Local tank chassis + turret (delta-time) | WI-006, WI-003 | TODO |
@@ -164,7 +164,7 @@ Delta time from THREE.Clock. No DOM except the canvas. No gameplay rules.
 - **Out of scope:** AABB, damage
 - **Acceptance:** `THREE.AmbientLight` in scene; local tank `THREE.SpotLight` casts shadows.
 - **Dispose / pause:** lights removed and disposed with scene
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

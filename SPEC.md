@@ -56,7 +56,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Isolation | Lighting in engine; AABB collision in logic |
 | Implementation path | `/src/engine/lights/`, `/src/logic/physics/` |
 | Owners | Agent-Engine (lights), Agent-Logic (collisions) |
-| Status | SCAFFOLD |
+| Status | PARTIAL |
 
 **Acceptance:**
 
