@@ -73,6 +73,7 @@ export class RoomManager {
         break;
       case 'CLIENT_STATE_UPDATE':
       case 'PLAYER_FIRE':
+      case 'PICKUP_TAKEN':
         this._touch(socket);
         this._relayToOpponent(socket, msg);
         break;

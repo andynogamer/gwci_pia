@@ -31,6 +31,8 @@ Agent-Logic still simulates the local tank. You do not “own physics” on the 
 
 Network Duel (`GAME_START.mode === "PVP"`) requires a Bearer token (WI-028). Do not `joinRoom` while signed out; UI must also block Deploy for guests.
 
+Local `ITEM_COLLECTED` (with `pickupId`) relays as WS `PICKUP_TAKEN` so both clients hide the same loot (WI-034). Do not grant buffs from remote takes.
+
 ## PVP room id (WI-027)
 
 Both clients must Deploy **Network Duel** with the **same arena**:

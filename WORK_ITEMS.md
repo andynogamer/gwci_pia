@@ -74,7 +74,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | DONE |
 | [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | DONE |
 | [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | DONE |
-| [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | TODO |
+| [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | DONE |
 | [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | TODO |
 | [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | TODO |
 | [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | TODO |
@@ -857,13 +857,14 @@ HUD_STATE numbers only. Do not import three. Do not edit engine or logic.
 
 - **REQ:** REQ-MULTI (playability — pickups are simulated independently on each PVP client)
 - **Agent:** Logic + Network
-- **Scope:** TBD after WI-029 (either document “cosmetic local loot” or add a contracted pickup relay)
+- **Scope:** `src/logic/items/ItemSystem.js`, `src/logic/GameManager.js`, `src/network/NetworkClient.js`, `server/ws/roomManager.js`, `CONTRACTS.md`, `src/core/Constants.js`
 - **Depends on:** WI-029
-- **Contracts:** none yet — **do not invent** `ITEM_COLLECTED` WS fields in this item until CONTRACTS.md is updated in the same change
+- **Contracts:** EventBus `ITEM_COLLECTED.pickupId`; EventBus + WS `PICKUP_TAKEN` `{ pickupId }`
+- **Decision:** **(b) contracted pickup relay** — collecting on one client hides that `pickupId` on the other. Buffs stay local-only (no remote grant). Stable ids `pickup-0…` from `mapVolumes.items` order.
 - **Out of scope:** server-side item authority / AABB
 - **Acceptance:** Product decision recorded in the WI: either (a) PVP arenas spawn no pickups, or (b) collecting on one client hides the pickup on the other via a contracted bus/WS event. Chrome 1v1 must not show a Repair Kit the opponent already took.
-- **Dispose / pause:** n/a until implementation
-- **Status:** TODO
+- **Dispose / pause:** n/a
+- **Status:** DONE
 
 **Prompt**
 

@@ -100,6 +100,9 @@ export class GameManager {
     this._unsubs.push(
       this.bus.on(Topics.MATCH_END, (payload) => this._onMatchEnd(payload)),
     );
+    this._unsubs.push(
+      this.bus.on(Topics.PICKUP_TAKEN, (payload) => this._onPickupTaken(payload)),
+    );
 
     this._scheduleLoop();
   }
@@ -832,7 +835,11 @@ export class GameManager {
   _tryPickup(entityId, x, z) {
     const got = this.items.tryCollectAt(entityId, x, z);
     if (!got) return;
-    this.bus.emit(Topics.ITEM_COLLECTED, { type: got.type, entityId });
+    this.bus.emit(Topics.ITEM_COLLECTED, {
+      type: got.type,
+      entityId,
+      pickupId: got.id,
+    });
     this.audio.playSfx('pickup');
     if (got.type === ItemType.REPAIR && entityId === LOCAL_TANK_ID) {
       this.hp = Math.min(this.maxHp, this.hp + REPAIR_AMOUNT);
@@ -842,6 +849,19 @@ export class GameManager {
         maxHp: this.maxHp,
       });
     }
+  }
+
+  /**
+   * WI-034 — remote peer took a pickup; hide it locally (no buff).
+   * @param {{ pickupId?: string }} payload
+   */
+  _onPickupTaken(payload) {
+    if (this.state !== GameState.PLAYING && this.state !== GameState.PAUSED) return;
+    if (!this.duel) return;
+    const pickupId = payload?.pickupId != null ? String(payload.pickupId) : '';
+    if (!pickupId) return;
+    if (!this.items.takePickup(pickupId)) return;
+    this.sceneManager?.syncPickups(this._pickupViews());
   }
 
   _pickupViews() {

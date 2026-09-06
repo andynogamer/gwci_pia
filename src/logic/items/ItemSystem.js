@@ -21,7 +21,6 @@ export class ItemSystem {
     this.active = new Map();
     /** @type {Array<{ id: string, type: string, x: number, z: number, live: boolean }>} */
     this.pickups = [];
-    this._nextId = 1;
   }
 
   /**
@@ -30,10 +29,12 @@ export class ItemSystem {
   spawn(spots) {
     this.clearPickups();
     this.active.clear();
+    // Stable ids across PVP peers (same mapVolumes.items order) — WI-034.
+    let index = 0;
     for (const s of spots) {
       if (!Object.values(ItemType).includes(s.type)) continue;
       this.pickups.push({
-        id: `item-${this._nextId++}`,
+        id: `pickup-${index++}`,
         type: s.type,
         x: s.x,
         z: s.z,
@@ -108,6 +109,20 @@ export class ItemSystem {
 
   livePickups() {
     return this.pickups.filter((p) => p.live);
+  }
+
+  /**
+   * WI-034 — hide a pickup the opponent already took (no buff).
+   * @param {string} pickupId
+   * @returns {boolean}
+   */
+  takePickup(pickupId) {
+    const id = String(pickupId || '');
+    if (!id) return false;
+    const p = this.pickups.find((row) => row.id === id);
+    if (!p || !p.live) return false;
+    p.live = false;
+    return true;
   }
 
   clearPickups() {

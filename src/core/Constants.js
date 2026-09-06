@@ -15,6 +15,7 @@ export const Topics = Object.freeze({
   HUD_STATE: 'HUD_STATE',
   ROOM_READY: 'ROOM_READY',
   MATCH_END: 'MATCH_END',
+  PICKUP_TAKEN: 'PICKUP_TAKEN',
 });
 
 export const GameMode = Object.freeze({

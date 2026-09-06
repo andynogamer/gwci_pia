@@ -73,6 +73,7 @@ export class NetworkClient {
       }),
       this.bus.on(Topics.PLAYER_FIRE, (payload) => this._onLocalFire(payload)),
       this.bus.on(Topics.CLIENT_STATE_UPDATE, (payload) => this._onLocalState(payload)),
+      this.bus.on(Topics.ITEM_COLLECTED, (payload) => this._onLocalPickup(payload)),
     );
   }
 
@@ -234,6 +235,19 @@ export class NetworkClient {
   }
 
   /**
+   * WI-034 — local collect → hide same pickupId on the opponent.
+   * @param {{ pickupId?: string, entityId?: string }} payload
+   */
+  _onLocalPickup(payload) {
+    const pickupId = payload?.pickupId != null ? String(payload.pickupId) : '';
+    if (!pickupId) return;
+    this._send({
+      event: 'PICKUP_TAKEN',
+      pickupId,
+    });
+  }
+
+  /**
    * Relay local pose ticks published on the bus (ignore remote echoes).
    * @param {{ id?: string, pos?: number[], rotY?: number, turretRotY?: number, hp?: number, timestamp?: number }} payload
    */
@@ -278,6 +292,11 @@ export class NetworkClient {
           direction: msg.direction,
           isLocal: false,
         });
+        break;
+      case 'PICKUP_TAKEN':
+        if (typeof msg.pickupId === 'string' && msg.pickupId) {
+          this.bus.emit(Topics.PICKUP_TAKEN, { pickupId: msg.pickupId });
+        }
         break;
       case 'MATCH_END':
         this.roomReady = false;

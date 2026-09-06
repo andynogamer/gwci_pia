@@ -89,12 +89,32 @@ Vectors are world-space `[x, y, z]` numbers.
 ```json
 {
   "type": "SHIELD" | "TRIPLE" | "REPAIR",
-  "entityId": "string"
+  "entityId": "string",
+  "pickupId": "string"
 }
 ```
 
-**Publishers:** Agent-Logic  
-**Subscribers:** Agent-UI (power-up label / pickup FX cue), Agent-Engine (shield shader toggle), Agent-Logic (item lifecycle)
+| Field | Type | Notes |
+| --- | --- | --- |
+| `type` | string | Item enum |
+| `entityId` | string | Collector tank id |
+| `pickupId` | string | Stable map pickup id (`pickup-0`, …) — same on both PVP peers |
+
+**Publishers:** Agent-Logic (local collect only)  
+**Subscribers:** Agent-UI (power-up label / pickup FX cue), Agent-Engine (shield shader toggle), Agent-Network (PVP → WS `PICKUP_TAKEN`)
+
+### PICKUP_TAKEN
+
+Opponent (or local echo filter) removed a world pickup. Does **not** grant a buff — hide mesh only.
+
+```json
+{
+  "pickupId": "string"
+}
+```
+
+**Publishers:** Agent-Network (WS → bus for remote peer)  
+**Subscribers:** Agent-Logic (mark pickup `live=false`, refresh meshes). Ignore unknown ids.
 
 ### SETTINGS_UPDATED
 
@@ -271,6 +291,17 @@ Server → Client. Authoritative room close.
 {
   "event": "MATCH_END",
   "reason": "opponent_left" | "heartbeat_timeout" | "room_full"
+}
+```
+
+### PICKUP_TAKEN (WebSocket)
+
+Client → Server → opponent. Hide a map pickup both peers share (WI-034). No buff, no AABB on the server.
+
+```json
+{
+  "event": "PICKUP_TAKEN",
+  "pickupId": "string"
 }
 ```
 
