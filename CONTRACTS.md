@@ -109,6 +109,24 @@ Volumes are floats in `[0, 1]`.
 **Publishers:** Agent-UI  
 **Subscribers:** Agent-Logic (audio graph)
 
+### CLIENT_STATE_UPDATE
+
+Same numeric fields as WebSocket §B (`id`, `timestamp`, `pos`, `rotY`, `turretRotY`, `hp`). EventBus payloads omit the WS `event` discriminator.
+
+```json
+{
+  "id": "player-uuid",
+  "timestamp": 0,
+  "pos": [0, 0, 0],
+  "rotY": 0,
+  "turretRotY": 0,
+  "hp": 100
+}
+```
+
+**Publishers:** Agent-Logic (local pose tick while PVP), Agent-Network (remote peer relay)  
+**Subscribers:** Agent-Network (relay local id to WS), Agent-Logic (apply remote opponent — WI-016)
+
 ---
 
 ## B. Real-Time WebSocket Telemetry
@@ -139,15 +157,63 @@ Client → Server → broadcast to opponent.
 | `turretRotY` | number | Turret yaw (radians) |
 | `hp` | number | Current hit points (display/sync only; logic remains damage authority on each peer per server broadcast rules) |
 
-Additional room events (names are reserved; payloads to be extended in this file before use):
+### JOIN_ROOM
 
-| Event | Direction | Purpose |
-| --- | --- | --- |
-| `JOIN_ROOM` | C→S | Match handshake |
-| `ROOM_READY` | S→C | Both peers present |
-| `HEARTBEAT` | C→S→C | Liveness |
-| `PLAYER_FIRE` | C→S→C | Firing vector relay (same numeric fields as EventBus `PLAYER_FIRE` without `isLocal`) |
-| `MATCH_END` | S→C | Authoritative room close |
+Client → Server. Match handshake for a named 1v1 room (max 2 peers).
+
+```json
+{
+  "event": "JOIN_ROOM",
+  "roomId": "string",
+  "playerId": "string"
+}
+```
+
+### ROOM_READY
+
+Server → Client. Both peers present in the room.
+
+```json
+{
+  "event": "ROOM_READY",
+  "roomId": "string",
+  "players": ["player-uuid-a", "player-uuid-b"]
+}
+```
+
+### HEARTBEAT
+
+Client → Server → Client (ack to sender). Server drops the peer (and room) if no heartbeat arrives within the timeout window.
+
+```json
+{
+  "event": "HEARTBEAT",
+  "timestamp": 0
+}
+```
+
+### PLAYER_FIRE (WebSocket)
+
+Client → Server → opponent. Same numeric fields as EventBus `PLAYER_FIRE` without `isLocal`.
+
+```json
+{
+  "event": "PLAYER_FIRE",
+  "origin": [0, 0, 0],
+  "direction": [0, 0, 1]
+}
+```
+
+### MATCH_END
+
+Server → Client. Authoritative room close.
+
+```json
+{
+  "event": "MATCH_END",
+  "reason": "opponent_left" | "heartbeat_timeout" | "room_full"
+}
+```
 
 ---
 

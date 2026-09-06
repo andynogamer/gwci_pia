@@ -1,18 +1,271 @@
 /**
- * Agent-Network — WebSocket client. Relays CONTRACTS.md telemetry only.
+ * Agent-Network — WebSocket client. Relays CONTRACTS.md §B telemetry only.
+ * No rendering, AABB, or damage. Imports: core + WebSocket only.
  */
+import { Topics, GameMode } from '../core/Constants.js';
+
+const DEFAULT_ROOM_ID = 'pvp-default';
+const HEARTBEAT_INTERVAL_MS = 2000;
+
 export class NetworkClient {
   /**
    * @param {import('../core/EventBus.js').EventBus} bus
+   * @param {{ url?: string }=} options
    */
-  constructor(bus) {
+  constructor(bus, options = {}) {
     this.bus = bus;
+    this.url = options.url ?? null;
+    /** @type {WebSocket | null} */
     this.socket = null;
+    this.playerId = createPlayerId();
+    this.roomId = DEFAULT_ROOM_ID;
+    this.roomReady = false;
+    this.token = null;
+    /** @type {ReturnType<typeof setInterval> | null} */
+    this._heartbeatTimer = null;
+    /** @type {Array<() => void>} */
+    this._unsubs = [];
+  }
+
+  /** Bearer token for score POST after GAME_OVER (set by login wiring). */
+  getToken() {
+    return this.token;
+  }
+
+  /**
+   * @param {string | null} token
+   */
+  setToken(token) {
+    this.token = token;
   }
 
   bind() {
-    // Handshake + CLIENT_STATE_UPDATE — Agent-Network
+    this._unsubs.push(
+      this.bus.on(Topics.GAME_START, (payload) => this._onGameStart(payload)),
+      this.bus.on(Topics.GAME_OVER, () => this.disconnect()),
+      this.bus.on(Topics.PLAYER_FIRE, (payload) => this._onLocalFire(payload)),
+      this.bus.on(Topics.CLIENT_STATE_UPDATE, (payload) => this._onLocalState(payload)),
+    );
   }
 
-  sendState(_payload) {}
+  unbind() {
+    for (const off of this._unsubs) off();
+    this._unsubs = [];
+    this.disconnect();
+  }
+
+  /**
+   * Open WS (if needed) and send JOIN_ROOM.
+   * @param {string=} roomId
+   */
+  joinRoom(roomId = DEFAULT_ROOM_ID) {
+    this.roomId = typeof roomId === 'string' && roomId.trim() ? roomId.trim() : DEFAULT_ROOM_ID;
+    this.roomReady = false;
+
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this._sendJoin();
+      return;
+    }
+
+    this.disconnect();
+    const url = this.url ?? defaultWsUrl();
+    const socket = new WebSocket(url);
+    this.socket = socket;
+
+    socket.addEventListener('open', () => {
+      if (this.socket !== socket) return;
+      this._sendJoin();
+      this._startHeartbeat();
+    });
+
+    socket.addEventListener('message', (ev) => {
+      if (this.socket !== socket) return;
+      this._onSocketMessage(ev.data);
+    });
+
+    socket.addEventListener('close', () => {
+      if (this.socket !== socket) return;
+      this._clearHeartbeat();
+      this.socket = null;
+      this.roomReady = false;
+    });
+
+    socket.addEventListener('error', () => {
+      // close handles cleanup
+    });
+  }
+
+  disconnect() {
+    this._clearHeartbeat();
+    this.roomReady = false;
+    const socket = this.socket;
+    this.socket = null;
+    if (socket && socket.readyState < WebSocket.CLOSING) {
+      try {
+        socket.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  /**
+   * Push local pose/hp to the opponent (also used when Logic emits CLIENT_STATE_UPDATE).
+   * @param {{ pos: number[], rotY: number, turretRotY: number, hp: number, id?: string, timestamp?: number }} payload
+   */
+  sendState(payload) {
+    if (!payload || !Array.isArray(payload.pos) || payload.pos.length !== 3) return;
+    const frame = {
+      event: 'CLIENT_STATE_UPDATE',
+      id: this.playerId,
+      timestamp: typeof payload.timestamp === 'number' ? payload.timestamp : Date.now(),
+      pos: [Number(payload.pos[0]), Number(payload.pos[1]), Number(payload.pos[2])],
+      rotY: Number(payload.rotY) || 0,
+      turretRotY: Number(payload.turretRotY) || 0,
+      hp: Number(payload.hp) || 0,
+    };
+    this._send(frame);
+  }
+
+  /**
+   * @param {{ mode?: string, mapId?: number }} payload
+   */
+  _onGameStart(payload) {
+    if (!payload || payload.mode !== GameMode.PVP) {
+      this.disconnect();
+      return;
+    }
+    const mapId = Number(payload.mapId);
+    const roomId = Number.isFinite(mapId) ? `pvp-map-${mapId}` : DEFAULT_ROOM_ID;
+    this.joinRoom(roomId);
+  }
+
+  /**
+   * @param {{ origin?: number[], direction?: number[], isLocal?: boolean }} payload
+   */
+  _onLocalFire(payload) {
+    if (!payload || payload.isLocal !== true) return;
+    if (!Array.isArray(payload.origin) || !Array.isArray(payload.direction)) return;
+    this._send({
+      event: 'PLAYER_FIRE',
+      origin: [Number(payload.origin[0]), Number(payload.origin[1]), Number(payload.origin[2])],
+      direction: [
+        Number(payload.direction[0]),
+        Number(payload.direction[1]),
+        Number(payload.direction[2]),
+      ],
+    });
+  }
+
+  /**
+   * Relay local pose ticks published on the bus (ignore remote echoes).
+   * @param {{ id?: string, pos?: number[], rotY?: number, turretRotY?: number, hp?: number, timestamp?: number }} payload
+   */
+  _onLocalState(payload) {
+    if (!payload || payload.id !== this.playerId) return;
+    this.sendState(payload);
+  }
+
+  /**
+   * @param {string | ArrayBuffer | Blob} data
+   */
+  _onSocketMessage(data) {
+    if (typeof data !== 'string') return;
+    let msg;
+    try {
+      msg = JSON.parse(data);
+    } catch {
+      return;
+    }
+    if (!msg || typeof msg.event !== 'string') return;
+
+    switch (msg.event) {
+      case 'ROOM_READY':
+        this.roomReady = true;
+        break;
+      case 'HEARTBEAT':
+        break;
+      case 'CLIENT_STATE_UPDATE':
+        this._emitRemoteState(msg);
+        break;
+      case 'PLAYER_FIRE':
+        this.bus.emit(Topics.PLAYER_FIRE, {
+          origin: msg.origin,
+          direction: msg.direction,
+          isLocal: false,
+        });
+        break;
+      case 'MATCH_END':
+        this.roomReady = false;
+        this.disconnect();
+        break;
+      default:
+        break;
+    }
+  }
+
+  /**
+   * @param {{ id?: string, timestamp?: number, pos?: number[], rotY?: number, turretRotY?: number, hp?: number }} msg
+   */
+  _emitRemoteState(msg) {
+    if (!msg || msg.id === this.playerId) return;
+    if (!Array.isArray(msg.pos) || msg.pos.length !== 3) return;
+    this.bus.emit(Topics.CLIENT_STATE_UPDATE, {
+      id: String(msg.id),
+      timestamp: Number(msg.timestamp) || Date.now(),
+      pos: [Number(msg.pos[0]), Number(msg.pos[1]), Number(msg.pos[2])],
+      rotY: Number(msg.rotY) || 0,
+      turretRotY: Number(msg.turretRotY) || 0,
+      hp: Number(msg.hp) || 0,
+    });
+  }
+
+  _sendJoin() {
+    this._send({
+      event: 'JOIN_ROOM',
+      roomId: this.roomId,
+      playerId: this.playerId,
+    });
+  }
+
+  _startHeartbeat() {
+    this._clearHeartbeat();
+    this._heartbeatTimer = setInterval(() => {
+      this._send({ event: 'HEARTBEAT', timestamp: Date.now() });
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  _clearHeartbeat() {
+    if (this._heartbeatTimer != null) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
+  }
+
+  /**
+   * @param {object} payload
+   */
+  _send(payload) {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    try {
+      this.socket.send(JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function defaultWsUrl() {
+  if (typeof location === 'undefined') {
+    return 'ws://127.0.0.1:3001/ws';
+  }
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${location.host}/ws`;
+}
+
+function createPlayerId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }

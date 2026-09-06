@@ -161,7 +161,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Payload | Compressed position, rotation, firing vectors |
 | Paths | `/src/network/`, `/server/ws/` |
 | Owner | Agent-Network |
-| Status | SCAFFOLD |
+| Status | PARTIAL |
 
 **Acceptance:** Two Chrome clients in one room see each other's chassis position, yaw, turret angle, and firing events with a client heartbeat and room handshake.
 

@@ -11,6 +11,7 @@ export const Topics = Object.freeze({
   TANK_DAMAGED: 'TANK_DAMAGED',
   ITEM_COLLECTED: 'ITEM_COLLECTED',
   SETTINGS_UPDATED: 'SETTINGS_UPDATED',
+  CLIENT_STATE_UPDATE: 'CLIENT_STATE_UPDATE',
 });
 
 export const GameMode = Object.freeze({

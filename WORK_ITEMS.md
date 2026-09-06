@@ -55,7 +55,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-012](#wi-012) | REQ-MODES | Logic | Horde Survival (PVE waves) | WI-009, WI-011 | DONE |
 | [WI-013](#wi-013) | REQ-SRV-DB | Network | MySQL schema, auth + scores REST | WI-001 | DONE |
 | [WI-014](#wi-014) | REQ-UI, REQ-SRV-DB | UI | Settings `localStorage`; highscores table from API | WI-002, WI-013 | DONE |
-| [WI-015](#wi-015) | REQ-MULTI | Network | WebSocket 1v1 rooms + `CLIENT_STATE_UPDATE` | WI-007, WI-013 | TODO |
+| [WI-015](#wi-015) | REQ-MULTI | Network | WebSocket 1v1 rooms + `CLIENT_STATE_UPDATE` | WI-007, WI-013 | DONE |
 | [WI-016](#wi-016) | REQ-MODES | Logic | Network Duel rules (no transport code) | WI-012, WI-015 | TODO |
 | [WI-017](#wi-017) | REQ-COL-LIGHT | Engine | Shield / ground `ShaderMaterial` | WI-010, WI-011 | TODO |
 | [WI-018](#wi-018) | gate | Integrator | Chrome 60 FPS + zero leak on restart | WI-012, WI-016, WI-017 | TODO |
@@ -413,7 +413,7 @@ Do not import three. Do not edit server/ or physics.
 - **Out of scope:** AABB, damage formulas, map meshes
 - **Acceptance:** Two Chrome clients in one room see opponent pose, turret, fire. Heartbeat drops stale rooms.
 - **Dispose / pause:** close socket on GAME_OVER / leave
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
