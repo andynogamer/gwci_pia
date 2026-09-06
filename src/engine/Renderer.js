@@ -57,6 +57,12 @@ export class Renderer {
     this._unsubs.push(
       this.bus.on(Topics.GAME_OVER, () => this._onGameOver()),
     );
+    this._unsubs.push(
+      this.bus.on(Topics.PLAYER_FIRE, (payload) => this._onPlayerFire(payload)),
+    );
+    this._unsubs.push(
+      this.bus.on(Topics.TANK_DAMAGED, (payload) => this._onTankDamaged(payload)),
+    );
   }
 
   /** Begin the requestAnimationFrame loop (idempotent). */
@@ -81,12 +87,47 @@ export class Renderer {
     } else {
       this.sceneManager.preparePlaceholder();
     }
+    this.sceneManager.particles?.clear();
     this.paused = false;
     if (!this.clock.running) {
       this.clock.start();
     }
     if (!this.running) {
       this.start();
+    }
+  }
+
+  /**
+   * @param {{ origin?: number[], direction?: number[], isLocal?: boolean }} payload
+   */
+  _onPlayerFire(payload) {
+    const origin = payload?.origin;
+    const direction = payload?.direction;
+    if (!Array.isArray(origin) || origin.length < 3) return;
+    if (!Array.isArray(direction) || direction.length < 3) return;
+    this.sceneManager.ensureParticles();
+    this.sceneManager.particles?.spawnMuzzle(
+      /** @type {[number, number, number]} */ ([origin[0], origin[1], origin[2]]),
+      /** @type {[number, number, number]} */ ([direction[0], direction[1], direction[2]]),
+    );
+  }
+
+  /**
+   * FX only — no HP math. Impact/smoke while alive; explosion at 0 HP.
+   * @param {{ entityId?: string, currentHp?: number, maxHp?: number }} payload
+   */
+  _onTankDamaged(payload) {
+    const entityId = payload?.entityId;
+    if (!entityId) return;
+    const origin = this.sceneManager.getEntityFxOrigin(entityId);
+    if (!origin) return;
+    this.sceneManager.ensureParticles();
+    const hp = Number(payload?.currentHp);
+    if (Number.isFinite(hp) && hp <= 0) {
+      this.sceneManager.particles?.spawnExplosion(origin);
+    } else {
+      this.sceneManager.particles?.spawnImpact(origin);
+      this.sceneManager.particles?.spawnSmoke(origin);
     }
   }
 

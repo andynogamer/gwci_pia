@@ -35,7 +35,14 @@ void api;
 
 /** DEV: `window.__mtaEngine.cameraManager.setMode('FOLLOW'|'ISOMETRIC')` */
 if (import.meta.env.DEV) {
-  window.__mtaEngine = { renderer, sceneManager, cameraManager, eventBus, get lights() { return sceneManager.lights; } };
+  window.__mtaEngine = {
+    renderer,
+    sceneManager,
+    cameraManager,
+    eventBus,
+    get lights() { return sceneManager.lights; },
+    get particles() { return sceneManager.particles; },
+  };
   window.__mtaLogic = { game };
 }
 

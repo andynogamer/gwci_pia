@@ -50,7 +50,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-007](#wi-007) | — | Logic | Local tank chassis + turret (delta-time) | WI-006, WI-003 | DONE |
 | [WI-008](#wi-008) | REQ-COL-LIGHT | Logic | AABB collision manager (`THREE.Box3`) | WI-007, WI-005 | DONE |
 | [WI-009](#wi-009) | REQ-AI-PART, REQ-DIFF | Logic | Enemy FOV, LOS raycast, AI FSM, two difficulties | WI-007, WI-008 | DONE |
-| [WI-010](#wi-010) | REQ-AI-PART | Engine | `THREE.Points` muzzle / impact / smoke / explosion | WI-003 | TODO |
+| [WI-010](#wi-010) | REQ-AI-PART | Engine | `THREE.Points` muzzle / impact / smoke / explosion | WI-003 | DONE |
 | [WI-011](#wi-011) | REQ-SND-ITM | Logic | BGM + SFX; Shield, Triple Shell, Repair Kit | WI-006 | TODO |
 | [WI-012](#wi-012) | REQ-MODES | Logic | Horde Survival (PVE waves) | WI-009, WI-011 | TODO |
 | [WI-013](#wi-013) | REQ-SRV-DB | Network | MySQL schema, auth + scores REST | WI-001 | TODO |
@@ -302,7 +302,7 @@ Difficulty EASY vs HARD per SPEC.md REQ-DIFF. No particle systems. No DOM.
 - **Out of scope:** damage math
 - **Acceptance:** `THREE.Points` for muzzle, impact, smoke, explosion. Lifetimes `* dt`. Disposed on restart.
 - **Dispose / pause:** mandatory
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

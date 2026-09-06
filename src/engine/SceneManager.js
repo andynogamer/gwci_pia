@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { DualLights } from './lights/DualLights.js';
 import { getMapEntry } from './maps/MapRegistry.js';
 import { LocalTankView } from './tanks/LocalTankView.js';
+import { ParticleSystem } from './particles/ParticleSystem.js';
 
 export class SceneManager {
   constructor() {
@@ -35,6 +36,9 @@ export class SceneManager {
     this._shellGeo = null;
     /** @type {THREE.MeshStandardMaterial | null} */
     this._shellMat = null;
+
+    /** @type {ParticleSystem | null} */
+    this.particles = null;
   }
 
   /**
@@ -43,6 +47,7 @@ export class SceneManager {
   preparePlaceholder() {
     this.unloadMap();
     this._ensureLights();
+    this._ensureParticles();
     this._applyTheme({
       background: 0x0e141c,
       fog: null,
@@ -89,6 +94,34 @@ export class SceneManager {
     this.lights.addToScene(this.scene);
   }
 
+  _ensureParticles() {
+    if (!this.particles) {
+      this.particles = new ParticleSystem();
+    }
+    this.particles.attach(this.scene);
+  }
+
+  /** Ensure particle root is on the scene (FX subscribers). */
+  ensureParticles() {
+    this._ensureParticles();
+  }
+
+  /**
+   * World position for FX (engine-internal; never put Object3D on the bus).
+   * @param {string} entityId
+   * @returns {[number, number, number] | null}
+   */
+  getEntityFxOrigin(entityId) {
+    if (entityId === 'local') {
+      const p = this._localTank?.root.position;
+      return p ? [p.x, p.y + 0.9, p.z] : null;
+    }
+    const enemy = this._enemies.get(entityId);
+    if (!enemy) return null;
+    const p = enemy.root.position;
+    return [p.x, p.y + 0.9, p.z];
+  }
+
   /**
    * @param {{ background: number, fog: number | null, fogNear?: number, fogFar?: number, ambient: number, ambientIntensity: number, spot: number }} theme
    */
@@ -117,6 +150,7 @@ export class SceneManager {
     this.unloadMap();
     this.mapId = mapId;
     this._ensureLights();
+    this._ensureParticles();
     this._applyTheme(entry.theme);
 
     const root = entry.build();
@@ -190,7 +224,7 @@ export class SceneManager {
   }
 
   /**
-   * Logic-owned AABB shells as simple meshes (particle FX is WI-010).
+   * Logic-owned AABB shells as simple meshes.
    * @param {Array<{ id: number, x: number, y: number, z: number }>} shots
    */
   syncProjectiles(shots) {
@@ -257,10 +291,10 @@ export class SceneManager {
   }
 
   /**
-   * @param {number} _dt seconds
+   * @param {number} dt seconds
    */
-  update(_dt) {
-    // Map meshes are static; particle/FX updates live elsewhere.
+  update(dt) {
+    this.particles?.update(dt);
   }
 
   /**
@@ -271,6 +305,11 @@ export class SceneManager {
     this.despawnEnemyTanks();
     this._disposeShellAssets();
     this.unloadMap();
+
+    if (this.particles) {
+      this.particles.dispose();
+      this.particles = null;
+    }
 
     if (this.lights) {
       this.lights.dispose();

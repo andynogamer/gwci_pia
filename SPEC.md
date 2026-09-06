@@ -177,7 +177,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Field | Value |
 | --- | --- |
 | Owners | Agent-Engine (particles), Agent-Logic (AI) |
-| Status | PARTIAL |
+| Status | DONE |
 
 **Acceptance:** Particles are delta-time scaled and disposed. AI does not engage targets outside the cone or occluded by obstacles.
 
