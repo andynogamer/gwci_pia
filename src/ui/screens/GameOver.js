@@ -1,6 +1,8 @@
 /**
- * REQ-UI / WI-024 — Game Over overlay. Shows GAME_OVER { winner, score }.
+ * REQ-UI / WI-037 — Game Over overlay. Shows GAME_OVER { winner, score }.
+ * Winner: PVE labels or PVP username from the bus. Score: always a visible integer.
  */
+import { loadPersistedAuth } from '../auth/session.js';
 
 export class GameOver {
   /**
@@ -17,6 +19,8 @@ export class GameOver {
     this.scoreEl = null;
     /** @type {HTMLElement | null} */
     this.subEl = null;
+    /** @type {HTMLElement | null} */
+    this.titleEl = null;
   }
 
   /**
@@ -34,14 +38,14 @@ export class GameOver {
         <p class="ui-screen__sub" data-go-sub></p>
       </header>
 
-      <dl class="ui-result">
-        <div>
+      <dl class="ui-result" aria-live="polite">
+        <div class="ui-result__row">
           <dt>Winner</dt>
-          <dd data-go-winner>—</dd>
+          <dd class="ui-result__winner" data-go-winner>—</dd>
         </div>
-        <div>
+        <div class="ui-result__row">
           <dt>Score</dt>
-          <dd data-go-score>0</dd>
+          <dd class="ui-result__score" data-go-score>0</dd>
         </div>
       </dl>
 
@@ -64,17 +68,17 @@ export class GameOver {
   }
 
   /**
-   * @param {{ winner?: string, score?: number }} payload
+   * @param {{ winner?: string, score?: number } | null | undefined} payload
    */
   show(payload) {
-    const winner = String(payload?.winner ?? '');
-    const score = Number(payload?.score) || 0;
+    const winner = String(payload?.winner ?? '').trim();
+    const scoreText = formatScore(payload?.score);
     const { title, sub, label } = describeResult(winner);
 
     if (this.titleEl) this.titleEl.textContent = title;
     if (this.subEl) this.subEl.textContent = sub;
-    if (this.winnerEl) this.winnerEl.textContent = label;
-    if (this.scoreEl) this.scoreEl.textContent = String(score);
+    if (this.winnerEl) this.winnerEl.textContent = label || '—';
+    if (this.scoreEl) this.scoreEl.textContent = scoreText;
     this.setVisible(true);
   }
 
@@ -82,6 +86,17 @@ export class GameOver {
   setVisible(visible) {
     if (this.el) this.el.hidden = !visible;
   }
+}
+
+/**
+ * Always a visible decimal integer string (including "0"). Never blank.
+ * @param {unknown} raw
+ * @returns {string}
+ */
+function formatScore(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return '0';
+  return String(Math.trunc(n));
 }
 
 /**
@@ -108,6 +123,23 @@ function describeResult(winner) {
       title: 'Match Ended',
       sub: 'Deploy aborted. Score retained from this run.',
       label: '—',
+    };
+  }
+
+  // PVP (WI-036): winner is a registered username — never invent a different name.
+  const localName = loadPersistedAuth().username;
+  if (localName && winner === localName) {
+    return {
+      title: 'Victory',
+      sub: 'You won the duel.',
+      label: winner,
+    };
+  }
+  if (localName && winner !== localName) {
+    return {
+      title: 'Defeat',
+      sub: `${winner} took the arena.`,
+      label: winner,
     };
   }
   return {

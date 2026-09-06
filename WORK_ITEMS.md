@@ -77,7 +77,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | DONE |
 | [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | DONE |
 | [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | DONE |
-| [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | TODO |
+| [WI-037](#wi-037) | REQ-UI | UI | Game Over shows username + visible score | WI-024, WI-036 | DONE |
 | [WI-038](#wi-038) | REQ-MODES | Logic | PVP victor leaves Playing via `GAME_OVER` | WI-016, WI-029 | TODO |
 
 **Next playable slice:** Bugfix queue **WI-035 → WI-038** (spawn stuck, game-over label/score, PVP winner stuck).
@@ -940,7 +940,7 @@ Update CONTRACTS.md if you add identity fields. No Game Over CSS. No DOM in Logi
   - **Score** as a visible decimal integer (including `0`) — never an empty `<dd>`
   Contrast/layout must remain readable on the existing dark overlay. Main Menu button still dismisses.
 - **Dispose / pause:** overlay DOM-only; sim already stopped
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

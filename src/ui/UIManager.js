@@ -102,7 +102,7 @@ export class UIManager {
       this.hud.clearRadar();
       this.screens.gameOver.show({
         winner: payload?.winner ?? '',
-        score: Number(payload?.score) || 0,
+        score: payload?.score,
       });
       this._applyVisibility();
     });
