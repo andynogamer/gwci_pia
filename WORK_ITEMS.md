@@ -43,7 +43,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | --- | --- | --- | --- | --- | --- |
 | [WI-001](#wi-001) | boot | Integrator | Install client/server and confirm canvas + `#ui-root` boot | — | DONE |
 | [WI-002](#wi-002) | REQ-UI | UI | Four screens + navigation (menu, settings, highscores, pause) | WI-001 | DONE |
-| [WI-003](#wi-003) | boot | Engine | Renderer loop, cameras, resize, dispose | WI-001 | TODO |
+| [WI-003](#wi-003) | boot | Engine | Renderer loop, cameras, resize, dispose | WI-001 | DONE |
 | [WI-004](#wi-004) | REQ-COL-LIGHT | Engine | Ambient + tank SpotLight (shadows) | WI-003 | TODO |
 | [WI-005](#wi-005) | REQ-MAPS | Engine | Three thematic arenas | WI-003 | TODO |
 | [WI-006](#wi-006) | boot | Logic | State machine + `THREE.Clock` game loop | WI-001 | TODO |
@@ -141,7 +141,7 @@ Do not import three. Do not edit src/engine, src/logic, src/network, or server.
 - **Out of scope:** HP, AI, DOM UI, network
 - **Acceptance:** WebGLRenderer on `#game-canvas`; follow + isometric cameras; resize; `dispose()` clears renderer resources.
 - **Dispose / pause:** geometries/materials/textures on unload
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 
