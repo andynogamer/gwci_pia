@@ -1,8 +1,9 @@
 /**
  * Agent-Network — WebSocket client. Relays CONTRACTS.md §B telemetry only.
- * No rendering, AABB, or damage. Imports: core + WebSocket only.
+ * WI-026: on GAME_OVER, POST /api/scores when a Bearer token exists.
+ * No rendering, AABB, or damage. Imports: core + WebSocket / ApiClient only.
  */
-import { Topics, GameMode } from '../core/Constants.js';
+import { Topics, GameMode, Difficulty } from '../core/Constants.js';
 
 const DEFAULT_ROOM_ID = 'pvp-default';
 const HEARTBEAT_INTERVAL_MS = 2000;
@@ -10,17 +11,21 @@ const HEARTBEAT_INTERVAL_MS = 2000;
 export class NetworkClient {
   /**
    * @param {import('../core/EventBus.js').EventBus} bus
-   * @param {{ url?: string }=} options
+   * @param {{ url?: string, api?: import('./ApiClient.js').ApiClient }=} options
    */
   constructor(bus, options = {}) {
     this.bus = bus;
     this.url = options.url ?? null;
+    /** @type {import('./ApiClient.js').ApiClient | null} */
+    this.api = options.api ?? null;
     /** @type {WebSocket | null} */
     this.socket = null;
     this.playerId = createPlayerId();
     this.roomId = DEFAULT_ROOM_ID;
     this.roomReady = false;
     this.token = null;
+    /** @type {{ mode: string, difficulty: string } | null} */
+    this._match = null;
     /** @type {ReturnType<typeof setInterval> | null} */
     this._heartbeatTimer = null;
     /** @type {Array<() => void>} */
@@ -29,20 +34,23 @@ export class NetworkClient {
 
   /** Bearer token for score POST after GAME_OVER (set by login wiring). */
   getToken() {
-    return this.token;
+    return this.token ?? this.api?.getToken?.() ?? this.api?.token ?? null;
   }
 
   /**
    * @param {string | null} token
    */
   setToken(token) {
-    this.token = token;
+    this.token = token && String(token).trim() ? String(token) : null;
+    this.api?.setToken?.(this.token);
   }
 
   bind() {
     this._unsubs.push(
       this.bus.on(Topics.GAME_START, (payload) => this._onGameStart(payload)),
-      this.bus.on(Topics.GAME_OVER, () => this.disconnect()),
+      this.bus.on(Topics.GAME_OVER, (payload) => {
+        void this._onGameOver(payload);
+      }),
       this.bus.on(Topics.PLAYER_FIRE, (payload) => this._onLocalFire(payload)),
       this.bus.on(Topics.CLIENT_STATE_UPDATE, (payload) => this._onLocalState(payload)),
     );
@@ -128,9 +136,19 @@ export class NetworkClient {
   }
 
   /**
-   * @param {{ mode?: string, mapId?: number }} payload
+   * @param {{ mode?: string, mapId?: number, difficulty?: string }} payload
    */
   _onGameStart(payload) {
+    if (
+      payload &&
+      (payload.mode === GameMode.PVE || payload.mode === GameMode.PVP) &&
+      (payload.difficulty === Difficulty.EASY || payload.difficulty === Difficulty.HARD)
+    ) {
+      this._match = { mode: payload.mode, difficulty: payload.difficulty };
+    } else {
+      this._match = null;
+    }
+
     if (!payload || payload.mode !== GameMode.PVP) {
       this.disconnect();
       return;
@@ -138,6 +156,30 @@ export class NetworkClient {
     const mapId = Number(payload.mapId);
     const roomId = Number.isFinite(mapId) ? `pvp-map-${mapId}` : DEFAULT_ROOM_ID;
     this.joinRoom(roomId);
+  }
+
+  /**
+   * Disconnect WS; if authenticated, POST score from last GAME_START mode/difficulty.
+   * @param {{ score?: number }} payload
+   */
+  async _onGameOver(payload) {
+    const match = this._match;
+    this._match = null;
+    this.disconnect();
+
+    const token = this.getToken();
+    if (!token || !this.api || !match) return;
+
+    this.api.setToken(token);
+    try {
+      await this.api.submitScore({
+        score: Number(payload?.score) || 0,
+        mode: match.mode,
+        difficulty: match.difficulty,
+      });
+    } catch {
+      // Network only; UI highscores refresh will show stale data if POST fails.
+    }
   }
 
   /**

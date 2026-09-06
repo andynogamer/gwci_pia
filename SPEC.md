@@ -131,7 +131,7 @@ A browser-based 3D arena tank game for academic rubric evaluation:
 | Field | Value |
 | --- | --- |
 | Owners | Agent-Network (API/DB), Agent-UI (localStorage) |
-| Status | PARTIAL |
+| Status | DONE |
 
 **Acceptance:** Register, login, submit score, and fetch top scores succeed against MySQL. Settings survive a browser refresh without hitting the server.
 

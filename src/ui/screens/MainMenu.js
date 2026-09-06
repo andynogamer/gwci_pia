@@ -1,7 +1,11 @@
 /**
- * REQ-UI — Main Menu. Emits GAME_START via EventBus only.
+ * REQ-UI — Main Menu loadout. Account lives on Login / Register screens.
  */
 import { Topics, GameMode, MapId, Difficulty } from '../../core/Constants.js';
+import {
+  loadPersistedAuth,
+  clearPersistedAuth,
+} from '../auth/session.js';
 
 const MAP_LABELS = Object.freeze({
   [MapId.DESERT_DUNES]: 'Desert Dunes',
@@ -9,16 +13,35 @@ const MAP_LABELS = Object.freeze({
   [MapId.LUNAR_STATION]: 'Lunar Station',
 });
 
+// Re-export session helpers for any older imports.
+export {
+  AUTH_KEYS,
+  loadPersistedAuth,
+  savePersistedAuth,
+  clearPersistedAuth,
+} from '../auth/session.js';
+
 export class MainMenu {
   /**
    * @param {import('../../core/EventBus.js').EventBus} bus
    * @param {{ navigate: (screen: string) => void }} router
+   * @param {{
+   *   onSession?: (session: { token: string | null, username: string | null }) => void,
+   * }} [auth]
    */
-  constructor(bus, router) {
+  constructor(bus, router, auth = {}) {
     this.bus = bus;
     this.router = router;
+    this.auth = auth;
     /** @type {HTMLElement | null} */
     this.el = null;
+    /** @type {HTMLElement | null} */
+    this.sessionEl = null;
+    /** @type {HTMLElement | null} */
+    this.guestActionsEl = null;
+    /** @type {HTMLElement | null} */
+    this.userActionsEl = null;
+    this.username = null;
     this.selection = {
       mode: GameMode.PVE,
       mapId: MapId.DESERT_DUNES,
@@ -38,6 +61,17 @@ export class MainMenu {
         <p class="ui-brand__tag">MICRO-TANKS</p>
         <h1 class="ui-brand__title">Arena 3D</h1>
         <p class="ui-brand__sub">Select loadout, then deploy.</p>
+      </div>
+
+      <div class="ui-account-bar" data-account-bar>
+        <p class="ui-session" data-auth-session hidden></p>
+        <div class="ui-actions ui-account-bar__guest" data-auth-guest>
+          <button type="button" class="ui-btn" data-action="login">Sign In</button>
+          <button type="button" class="ui-btn ui-btn--primary" data-action="register">Register</button>
+        </div>
+        <div class="ui-actions ui-account-bar__user" data-auth-user hidden>
+          <button type="button" class="ui-btn" data-action="logout">Logout</button>
+        </div>
       </div>
 
       <form class="ui-form" data-form="start">
@@ -82,6 +116,20 @@ export class MainMenu {
       </form>
     `;
 
+    this.sessionEl = wrap.querySelector('[data-auth-session]');
+    this.guestActionsEl = wrap.querySelector('[data-auth-guest]');
+    this.userActionsEl = wrap.querySelector('[data-auth-user]');
+
+    wrap.querySelector('[data-action="login"]').addEventListener('click', () => {
+      this.router.navigate('login');
+    });
+    wrap.querySelector('[data-action="register"]').addEventListener('click', () => {
+      this.router.navigate('register');
+    });
+    wrap.querySelector('[data-action="logout"]').addEventListener('click', () => {
+      this._logout();
+    });
+
     const form = wrap.querySelector('[data-form="start"]');
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -113,10 +161,46 @@ export class MainMenu {
 
     this.el = wrap;
     root.appendChild(wrap);
+    this._restoreSession();
   }
 
   /** @param {boolean} visible */
   setVisible(visible) {
     if (this.el) this.el.hidden = !visible;
+    if (visible) this.refreshSession();
+  }
+
+  /** Refresh account strip after login / register / logout. */
+  refreshSession() {
+    const session = loadPersistedAuth();
+    this.username = session.username;
+    this._renderSession();
+  }
+
+  _restoreSession() {
+    const session = loadPersistedAuth();
+    this.username = session.username;
+    this.auth.onSession?.({
+      token: session.token,
+      username: session.username,
+    });
+    this._renderSession();
+  }
+
+  _logout() {
+    clearPersistedAuth();
+    this.username = null;
+    this.auth.onSession?.({ token: null, username: null });
+    this._renderSession();
+  }
+
+  _renderSession() {
+    const loggedIn = Boolean(this.username);
+    if (this.sessionEl) {
+      this.sessionEl.hidden = !loggedIn;
+      this.sessionEl.textContent = loggedIn ? `Signed in as ${this.username}` : '';
+    }
+    if (this.guestActionsEl) this.guestActionsEl.hidden = loggedIn;
+    if (this.userActionsEl) this.userActionsEl.hidden = !loggedIn;
   }
 }

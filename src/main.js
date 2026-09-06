@@ -17,16 +17,22 @@ const uiRoot = document.getElementById('ui-root');
 const sceneManager = new SceneManager();
 const cameraManager = new CameraManager();
 const renderer = new Renderer(canvas, eventBus, { sceneManager, cameraManager });
-const net = new NetworkClient(eventBus);
+const api = new ApiClient();
+const net = new NetworkClient(eventBus, { api });
 const game = new GameManager(eventBus, {
   sceneManager,
   cameraManager,
   getLocalPlayerId: () => net.playerId,
 });
-const api = new ApiClient();
 const ui = new UIManager(uiRoot, eventBus, {
   onQuitToMenu: () => game.endMatch({ winner: '', score: 0 }),
   getScores: (limit) => api.getScores(limit),
+  register: (username, password) => api.register(username, password),
+  login: (username, password) => api.login(username, password),
+  onSession: ({ token }) => {
+    api.setToken(token);
+    net.setToken(token);
+  },
 });
 
 renderer.mount();
@@ -49,6 +55,7 @@ if (import.meta.env.DEV) {
     getGpuStats: () => renderer.getGpuStats(),
   };
   window.__mtaLogic = { game };
+  window.__mtaNet = { net, api };
 }
 
 /**

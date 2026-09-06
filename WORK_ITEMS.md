@@ -66,10 +66,10 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-023](#wi-023) | playability | Logic | Recruit opening seconds are not a death sentence | WI-018, WI-022 | DONE |
 | [WI-024](#wi-024) | REQ-UI | UI | Show `GAME_OVER` winner + score | WI-012, WI-018 | DONE |
 | [WI-025](#wi-025) | REQ-UI | UI + Logic | HUD radar + power-up countdown from the bus | WI-011, WI-018 | DONE |
-| [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | TODO |
+| [WI-026](#wi-026) | REQ-SRV-DB | UI + Network | Login/register; POST score on `GAME_OVER` | WI-014, WI-018 | DONE |
 | [WI-027](#wi-027) | REQ-MULTI | Network | Two Chrome clients in one room (pose / turret / fire) | WI-015, WI-016, WI-018 | TODO |
 
-**Next playable slice:** WI-023 (Recruit spawn) → WI-024 (game-over screen). Auth/scores (WI-026) unblocks closing REQ-SRV-DB.
+**Next playable slice:** WI-027 (two Chrome clients in one PVP room).
 
 ---
 
@@ -651,7 +651,7 @@ Logic publishes plain numbers; UI draws DOM/canvas under #ui-root. No three in /
 - **Out of scope:** MySQL schema changes; PVP transport (WI-027)
 - **Acceptance:** Register + login from `#ui-root`. After an authenticated match, `GAME_OVER` POSTs `{ score, mode, difficulty }` with Bearer token. Highscores refresh shows that row. WI-018 never submitted a score (no auth UI, NetworkClient only disconnects).
 - **Dispose / pause:** n/a (HTTP); do not log passwords
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

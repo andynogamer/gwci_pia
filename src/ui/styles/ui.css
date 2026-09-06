@@ -208,6 +208,66 @@ body {
   font: inherit;
 }
 
+.ui-field {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.85rem;
+  color: var(--ui-muted);
+}
+
+.ui-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--ui-panel-edge);
+  background: #0d141b;
+  color: var(--ui-text);
+  font: inherit;
+}
+
+.ui-session {
+  margin: 0;
+  font-family: var(--ui-mono);
+  font-size: 0.8rem;
+  color: var(--ui-ok);
+}
+
+.ui-session[hidden] {
+  display: none !important;
+}
+
+.ui-account-bar {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 1.15rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--ui-panel-edge);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.ui-account-bar__guest,
+.ui-account-bar__user {
+  margin-top: 0;
+}
+
+.ui-account-bar__guest[hidden],
+.ui-account-bar__user[hidden] {
+  display: none !important;
+}
+
+.ui-screen--auth .ui-screen__head {
+  text-align: center;
+}
+
+.ui-screen--auth .ui-brand__tag {
+  margin-bottom: 0.35rem;
+}
+
+.ui-status--error {
+  color: var(--ui-danger);
+}
+
 .ui-actions {
   display: flex;
   flex-wrap: wrap;

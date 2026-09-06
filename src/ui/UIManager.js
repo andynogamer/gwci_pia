@@ -1,9 +1,10 @@
 /**
  * Agent-UI — screen orchestration under #ui-root only.
- * REQ-UI / WI-024: GAME_OVER shows winner + score before returning to menu.
  */
 import { Topics } from '../core/Constants.js';
 import { MainMenu } from './screens/MainMenu.js';
+import { Login } from './screens/Login.js';
+import { Register } from './screens/Register.js';
 import { Settings } from './screens/Settings.js';
 import { Highscores } from './screens/Highscores.js';
 import { PauseOverlay } from './screens/PauseOverlay.js';
@@ -11,7 +12,7 @@ import { GameOver } from './screens/GameOver.js';
 import { Hud } from './components/Hud.js';
 import './styles/ui.css';
 
-/** @typedef {'menu' | 'settings' | 'highscores'} MenuScreen */
+/** @typedef {'menu' | 'settings' | 'highscores' | 'login' | 'register'} MenuScreen */
 
 export class UIManager {
   /**
@@ -20,6 +21,9 @@ export class UIManager {
    * @param {{
    *   onQuitToMenu?: () => void,
    *   getScores?: (limit?: number) => Promise<unknown>,
+   *   register?: (username: string, password: string) => Promise<{ success?: boolean, userId?: string | null }>,
+   *   login?: (username: string, password: string) => Promise<{ token?: string | null, username?: string | null }>,
+   *   onSession?: (session: { token: string | null, username: string | null }) => void,
    * }} [hooks]
    */
   constructor(root, bus, hooks = {}) {
@@ -40,8 +44,17 @@ export class UIManager {
       toMenu: () => this.dismissGameOver(),
     };
 
+    const authFacade = {
+      register: hooks.register,
+      login: hooks.login,
+      onSession: hooks.onSession,
+      onAuthChange: () => this.screens.menu.refreshSession(),
+    };
+
     this.screens = {
-      menu: new MainMenu(bus, router),
+      menu: new MainMenu(bus, router, { onSession: hooks.onSession }),
+      login: new Login(bus, router, authFacade),
+      register: new Register(bus, router, authFacade),
       settings: new Settings(bus, router),
       highscores: new Highscores(bus, router, { getScores: hooks.getScores }),
       pause: new PauseOverlay(bus, router),
@@ -53,6 +66,8 @@ export class UIManager {
   mount() {
     this.root.replaceChildren();
     this.screens.menu.mount(this.root);
+    this.screens.login.mount(this.root);
+    this.screens.register.mount(this.root);
     this.screens.settings.mount(this.root);
     this.screens.highscores.mount(this.root);
     this.screens.pause.mount(this.root);
@@ -103,7 +118,6 @@ export class UIManager {
     });
 
     this.bus.on(Topics.ITEM_COLLECTED, (payload) => {
-      // Instant repair cue only; timed buffs + countdown come from HUD_STATE.
       if (!payload || payload.entityId !== 'local') return;
       if (payload.type === 'REPAIR') {
         this.hud.setPowerup('Repair kit');
@@ -128,9 +142,12 @@ export class UIManager {
    */
   navigate(screen) {
     if (this.showingGameOver) return;
-    if (screen !== 'menu' && screen !== 'settings' && screen !== 'highscores') return;
-    if (screen === 'highscores' && this.playing) return;
-    this.activeScreen = screen;
+    const allowed = ['menu', 'settings', 'highscores', 'login', 'register'];
+    if (!allowed.includes(screen)) return;
+    if ((screen === 'highscores' || screen === 'login' || screen === 'register') && this.playing) {
+      return;
+    }
+    this.activeScreen = /** @type {MenuScreen} */ (screen);
     this._applyVisibility();
   }
 
@@ -160,6 +177,8 @@ export class UIManager {
   _applyVisibility() {
     if (this.showingGameOver) {
       this.screens.menu.setVisible(false);
+      this.screens.login.setVisible(false);
+      this.screens.register.setVisible(false);
       this.screens.settings.setVisible(false);
       this.screens.highscores.setVisible(false);
       if (this.screens.pause.el) this.screens.pause.el.hidden = true;
@@ -171,9 +190,13 @@ export class UIManager {
     const inMenus = !this.playing;
     const showSettings = this.activeScreen === 'settings';
     const showHighscores = inMenus && this.activeScreen === 'highscores';
+    const showLogin = inMenus && this.activeScreen === 'login';
+    const showRegister = inMenus && this.activeScreen === 'register';
     const showMenu = inMenus && this.activeScreen === 'menu';
 
     this.screens.menu.setVisible(showMenu);
+    this.screens.login.setVisible(showLogin);
+    this.screens.register.setVisible(showRegister);
     this.screens.settings.setVisible(showSettings);
     this.screens.highscores.setVisible(showHighscores);
     this.screens.gameOver.setVisible(false);
