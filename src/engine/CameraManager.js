@@ -13,10 +13,6 @@ const FOLLOW_BACK = 15;
 const FOLLOW_HEIGHT = 7.5;
 const FOLLOW_LOOK_AHEAD = 5;
 const FOLLOW_LOOK_HEIGHT = 1.2;
-/** Position catch-up rate (lower = smoother). */
-const FOLLOW_POS_SMOOTH = 2.15;
-/** Yaw catch-up rate (lower = smoother orbit). */
-const FOLLOW_YAW_SMOOTH = 2.4;
 const ISO_DISTANCE = 28;
 const ISO_YAW = Math.PI / 4;
 const ISO_PITCH = Math.atan(1 / Math.SQRT2);
@@ -50,9 +46,6 @@ export class CameraManager {
     this.target = new THREE.Vector3(0, 0, 0);
     /** Turret yaw (radians). Camera sits behind the cannon. */
     this.followYaw = Math.PI;
-    /** Smoothed yaw used for offset / look (lags followYaw). */
-    this._visualYaw = Math.PI;
-    this._desired = new THREE.Vector3();
     this._lookAt = new THREE.Vector3();
     this._isoOffset = new THREE.Vector3();
     this._followOffset = new THREE.Vector3();
@@ -106,22 +99,10 @@ export class CameraManager {
 
   /** Jump the follow rig (match start). */
   snapFollow() {
-    this._visualYaw = this.followYaw;
     this._placeFollowImmediate();
   }
 
-  _wrapAngle(a) {
-    let x = a;
-    while (x > Math.PI) x -= Math.PI * 2;
-    while (x < -Math.PI) x += Math.PI * 2;
-    return x;
-  }
-
-  _shortestDelta(from, to) {
-    return this._wrapAngle(to - from);
-  }
-
-  _followOffsetFromYaw(yaw = this._visualYaw) {
+  _followOffsetFromYaw(yaw = this.followYaw) {
     const fx = Math.sin(yaw);
     const fz = Math.cos(yaw);
     this._followOffset.set(-fx * FOLLOW_BACK, FOLLOW_HEIGHT, -fz * FOLLOW_BACK);
@@ -169,31 +150,18 @@ export class CameraManager {
     if (dt <= 0) return;
 
     if (this.mode === CameraMode.FOLLOW) {
-      const yawT = 1 - Math.exp(-FOLLOW_YAW_SMOOTH * dt);
-      this._visualYaw = this._wrapAngle(
-        this._visualYaw + this._shortestDelta(this._visualYaw, this.followYaw) * yawT,
-      );
-
-      this._desired.copy(this.target).add(this._followOffsetFromYaw(this._visualYaw));
-      const posT = 1 - Math.exp(-FOLLOW_POS_SMOOTH * dt);
-      this.followCam.position.lerp(this._desired, posT);
-      const fx = Math.sin(this._visualYaw);
-      const fz = Math.cos(this._visualYaw);
-      this._lookAt.set(
-        this.target.x + fx * FOLLOW_LOOK_AHEAD,
-        this.target.y + FOLLOW_LOOK_HEIGHT,
-        this.target.z + fz * FOLLOW_LOOK_AHEAD,
-      );
-      this.followCam.lookAt(this._lookAt);
+      // Rigid orbit: place on the yaw circle every frame. Lerp would cut a chord
+      // and read as a slide sideways, not a rotation with the cannon.
+      this._placeFollowImmediate();
     } else {
       this._placeIso();
     }
   }
 
   _placeFollowImmediate() {
-    this.followCam.position.copy(this.target).add(this._followOffsetFromYaw(this._visualYaw));
-    const fx = Math.sin(this._visualYaw);
-    const fz = Math.cos(this._visualYaw);
+    this.followCam.position.copy(this.target).add(this._followOffsetFromYaw(this.followYaw));
+    const fx = Math.sin(this.followYaw);
+    const fz = Math.cos(this.followYaw);
     this._lookAt.set(
       this.target.x + fx * FOLLOW_LOOK_AHEAD,
       this.target.y + FOLLOW_LOOK_HEIGHT,
