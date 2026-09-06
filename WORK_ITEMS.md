@@ -73,7 +73,7 @@ Status: `TODO` · `IN_PROGRESS` · `BLOCKED` · `DONE`
 | [WI-030](#wi-030) | REQ-MULTI | Network + Logic | `MATCH_END` ends the local duel | WI-027, WI-016 | DONE |
 | [WI-031](#wi-031) | REQ-MAPS | Engine + Logic | Expand all three arenas (ground + AABB + cover) | WI-005, WI-008 | DONE |
 | [WI-032](#wi-032) | REQ-SND-ITM, REQ-MODES | Logic | Respawn Shield / Triple / Repair each PVE wave | WI-011, WI-012 | DONE |
-| [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | TODO |
+| [WI-033](#wi-033) | REQ-UI | UI | Radar world radius matches expanded arena | WI-025, WI-031 | DONE |
 | [WI-034](#wi-034) | REQ-MULTI | Logic + Network | PVP pickups stay local-only (document or sync) | WI-029 | TODO |
 | [WI-035](#wi-035) | playability | Logic | PVP pads clear of AABB obstacles | WI-029 | TODO |
 | [WI-036](#wi-036) | REQ-UI, REQ-MULTI | Logic + Network + Core | `GAME_OVER.winner` is unique username | WI-026, WI-029 | TODO |
@@ -841,7 +841,7 @@ Do not reset the player's active power-up. No DOM. No engine materials. No socke
 - **Out of scope:** Three.js mini-scene; reading Object3D; changing Logic volumes
 - **Acceptance:** After WI-031, tanks near the new perimeter still appear on the radar disk (not clipped at the old ±22). Local wedge stays centered. No `three` import.
 - **Dispose / pause:** radar still ignores ticks while not Playing
-- **Status:** TODO
+- **Status:** DONE
 
 **Prompt**
 

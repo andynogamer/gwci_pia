@@ -9,8 +9,8 @@ const POWERUP_LABEL = Object.freeze({
   REPAIR: 'Repair kit',
 });
 
-/** World half-extent mapped onto the radar disk (matches Logic arena ~22). */
-const RADAR_WORLD_R = 22;
+/** World half-extent mapped onto the radar disk (matches Logic ARENA_HALF / WI-031). */
+const RADAR_WORLD_R = 34;
 
 export class Hud {
   constructor() {
