@@ -271,6 +271,17 @@ body {
   font-family: var(--ui-mono);
 }
 
+.ui-status {
+  margin: 0 0 0.75rem;
+  font-family: var(--ui-mono);
+  font-size: 0.78rem;
+  color: var(--ui-accent);
+}
+
+.ui-status[hidden] {
+  display: none !important;
+}
+
 .ui-table-wrap {
   overflow-x: auto;
   margin-bottom: 1rem;

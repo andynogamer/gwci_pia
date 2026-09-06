@@ -1,16 +1,38 @@
 /**
- * REQ-UI — Settings. Audio sliders; persist under mta.* (full API wire in WI-014).
+ * REQ-UI / WI-014 — Settings. Audio sliders persist under mta.* localStorage.
  * Keys: mta.masterVolume, mta.sfxVolume — floats [0,1]
  */
 import { Topics } from '../../core/Constants.js';
 
-const KEY_MASTER = 'mta.masterVolume';
-const KEY_SFX = 'mta.sfxVolume';
+/** @type {const} */
+export const SETTINGS_KEYS = {
+  masterVolume: 'mta.masterVolume',
+  sfxVolume: 'mta.sfxVolume',
+};
 
 function clamp01(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return 1;
   return Math.min(1, Math.max(0, v));
+}
+
+/**
+ * Read persisted volumes (defaults to 1). Survives page refresh.
+ * @returns {{ masterVolume: number, sfxVolume: number }}
+ */
+export function loadPersistedSettings() {
+  return {
+    masterVolume: clamp01(localStorage.getItem(SETTINGS_KEYS.masterVolume) ?? '1'),
+    sfxVolume: clamp01(localStorage.getItem(SETTINGS_KEYS.sfxVolume) ?? '1'),
+  };
+}
+
+/**
+ * @param {{ masterVolume: number, sfxVolume: number }} volumes
+ */
+export function savePersistedSettings(volumes) {
+  localStorage.setItem(SETTINGS_KEYS.masterVolume, String(clamp01(volumes.masterVolume)));
+  localStorage.setItem(SETTINGS_KEYS.sfxVolume, String(clamp01(volumes.sfxVolume)));
 }
 
 export class Settings {
@@ -29,8 +51,7 @@ export class Settings {
    * @param {HTMLElement} root
    */
   mount(root) {
-    const master = clamp01(localStorage.getItem(KEY_MASTER) ?? '1');
-    const sfx = clamp01(localStorage.getItem(KEY_SFX) ?? '1');
+    const { masterVolume: master, sfxVolume: sfx } = loadPersistedSettings();
 
     const wrap = document.createElement('section');
     wrap.dataset.screen = 'settings';
@@ -39,7 +60,7 @@ export class Settings {
     wrap.innerHTML = `
       <header class="ui-screen__head">
         <h2>Settings</h2>
-        <p class="ui-screen__sub">Audio levels and control reference.</p>
+        <p class="ui-screen__sub">Audio levels and control reference. Saved on this device.</p>
       </header>
 
       <div class="ui-form">
@@ -71,8 +92,12 @@ export class Settings {
       </div>
     `;
 
-    const masterInput = wrap.querySelector('input[name="masterVolume"]');
-    const sfxInput = wrap.querySelector('input[name="sfxVolume"]');
+    const masterInput = /** @type {HTMLInputElement} */ (
+      wrap.querySelector('input[name="masterVolume"]')
+    );
+    const sfxInput = /** @type {HTMLInputElement} */ (
+      wrap.querySelector('input[name="sfxVolume"]')
+    );
     const masterOut = wrap.querySelector('[data-out="master"]');
     const sfxOut = wrap.querySelector('[data-out="sfx"]');
 
@@ -81,8 +106,7 @@ export class Settings {
         masterVolume: clamp01(masterInput.value),
         sfxVolume: clamp01(sfxInput.value),
       };
-      localStorage.setItem(KEY_MASTER, String(payload.masterVolume));
-      localStorage.setItem(KEY_SFX, String(payload.sfxVolume));
+      savePersistedSettings(payload);
       masterOut.textContent = String(Math.round(payload.masterVolume * 100));
       sfxOut.textContent = String(Math.round(payload.sfxVolume * 100));
       this.bus.emit(Topics.SETTINGS_UPDATED, payload);

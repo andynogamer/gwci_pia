@@ -18,10 +18,11 @@ const sceneManager = new SceneManager();
 const cameraManager = new CameraManager();
 const renderer = new Renderer(canvas, eventBus, { sceneManager, cameraManager });
 const game = new GameManager(eventBus, { sceneManager, cameraManager });
+const api = new ApiClient();
 const ui = new UIManager(uiRoot, eventBus, {
   onQuitToMenu: () => game.endMatch({ winner: '', score: 0 }),
+  getScores: (limit) => api.getScores(limit),
 });
-const api = new ApiClient();
 const net = new NetworkClient(eventBus);
 
 renderer.mount();
@@ -30,8 +31,6 @@ game.boot();
 ui.mount();
 net.bind();
 bindLocalTankInput(game);
-
-void api;
 
 /** DEV: `window.__mtaEngine.cameraManager.setMode('FOLLOW'|'ISOMETRIC')` */
 if (import.meta.env.DEV) {

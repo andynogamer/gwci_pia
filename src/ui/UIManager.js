@@ -1,6 +1,6 @@
 /**
  * Agent-UI — screen orchestration under #ui-root only.
- * REQ-UI / WI-002: Main Menu, Settings, Highscores, Pause + navigation.
+ * REQ-UI / WI-014: Settings localStorage + Highscores via ApiClient facade.
  */
 import { Topics } from '../core/Constants.js';
 import { MainMenu } from './screens/MainMenu.js';
@@ -16,7 +16,10 @@ export class UIManager {
   /**
    * @param {HTMLElement} root
    * @param {import('../core/EventBus.js').EventBus} bus
-   * @param {{ onQuitToMenu?: () => void }} [hooks]
+   * @param {{
+   *   onQuitToMenu?: () => void,
+   *   getScores?: (limit?: number) => Promise<unknown>,
+   * }} [hooks]
    */
   constructor(root, bus, hooks = {}) {
     this.root = root;
@@ -36,7 +39,7 @@ export class UIManager {
     this.screens = {
       menu: new MainMenu(bus, router),
       settings: new Settings(bus, router),
-      highscores: new Highscores(bus, router),
+      highscores: new Highscores(bus, router, { getScores: hooks.getScores }),
       pause: new PauseOverlay(bus, router),
     };
     this.hud = new Hud();

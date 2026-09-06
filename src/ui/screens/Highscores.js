@@ -1,18 +1,24 @@
 /**
- * REQ-UI — Highscores table. Renders arrays supplied later (WI-014 / ApiClient).
+ * REQ-UI / WI-014 — Highscores table from GET /api/scores (via ApiClient facade).
  */
 
 export class Highscores {
   /**
    * @param {import('../../core/EventBus.js').EventBus} _bus
    * @param {{ navigate: (screen: string) => void }} router
+   * @param {{ getScores?: (limit?: number) => Promise<unknown> }} [api]
    */
-  constructor(_bus, router) {
+  constructor(_bus, router, api = {}) {
     this.router = router;
+    this.getScores = api.getScores;
     /** @type {HTMLElement | null} */
     this.el = null;
     /** @type {HTMLTableSectionElement | null} */
     this.tbody = null;
+    /** @type {HTMLElement | null} */
+    this.statusEl = null;
+    /** @type {number} */
+    this._loadGen = 0;
   }
 
   /**
@@ -26,8 +32,10 @@ export class Highscores {
     wrap.innerHTML = `
       <header class="ui-screen__head">
         <h2>Highscores</h2>
-        <p class="ui-screen__sub">Top deployments on this machine / server.</p>
+        <p class="ui-screen__sub">Top scores from the arena server.</p>
       </header>
+
+      <p class="ui-status" data-scores-status hidden></p>
 
       <div class="ui-table-wrap">
         <table class="ui-table">
@@ -49,21 +57,54 @@ export class Highscores {
       </div>
 
       <div class="ui-actions">
+        <button type="button" class="ui-btn" data-action="refresh">Refresh</button>
         <button type="button" class="ui-btn ui-btn--primary" data-action="back">Back</button>
       </div>
     `;
 
     this.tbody = wrap.querySelector('[data-scores-body]');
+    this.statusEl = wrap.querySelector('[data-scores-status]');
+
     wrap.querySelector('[data-action="back"]').addEventListener('click', () => {
       this.router.navigate('menu');
+    });
+    wrap.querySelector('[data-action="refresh"]').addEventListener('click', () => {
+      void this.refresh();
     });
 
     this.el = wrap;
     root.appendChild(wrap);
   }
 
+  /** Fetch leaderboard via injected ApiClient facade. */
+  async refresh() {
+    const gen = ++this._loadGen;
+    if (!this.getScores) {
+      this._setStatus('Scores API not wired.');
+      this.setScores([]);
+      return;
+    }
+
+    this._setStatus('Loading…');
+    try {
+      const data = await this.getScores(10);
+      if (gen !== this._loadGen) return;
+      if (!Array.isArray(data)) {
+        this._setStatus('Unexpected response from server.');
+        this.setScores([]);
+        return;
+      }
+      this._setStatus(data.length === 0 ? 'No scores yet.' : '');
+      this.setScores(data);
+    } catch {
+      if (gen !== this._loadGen) return;
+      this._setStatus('Could not reach scores API. Is the server running?');
+      this.setScores([]);
+    }
+  }
+
   /**
-   * Replace table rows from a REST-shaped score array.
+   * Replace table rows from a REST-shaped score array (CONTRACTS.md §C).
    * @param {Array<{ username?: string, score?: number, mode?: string, difficulty?: string }>} rows
    */
   setScores(rows) {
@@ -94,6 +135,15 @@ export class Highscores {
   /** @param {boolean} visible */
   setVisible(visible) {
     if (this.el) this.el.hidden = !visible;
+    if (visible) void this.refresh();
+  }
+
+  /** @param {string} message */
+  _setStatus(message) {
+    if (!this.statusEl) return;
+    const text = String(message || '').trim();
+    this.statusEl.hidden = !text;
+    this.statusEl.textContent = text;
   }
 }
 
